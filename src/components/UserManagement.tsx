@@ -30,26 +30,34 @@ import {
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { Plus, UserCog, User as UserIcon, Trash2 } from 'lucide-react';
+import { Plus, UserCog, User as UserIcon, Trash2, Eye, EyeOff } from 'lucide-react';
 
 export const UserManagement: React.FC = () => {
   const { users, addUser, updateUser, deleteUser, currentUser } = useBooking();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [newUser, setNewUser] = useState<Omit<User, 'id'>>({
     name: '',
     email: '',
     role: 'user',
+    password: '',
     avatar: `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}`
   });
   
   const handleAddUser = () => {
+    if (newUser.password.length < 6) {
+      toast.error("Password must be at least 6 characters long");
+      return;
+    }
+    
     addUser(newUser);
     setNewUser({
       name: '',
       email: '',
       role: 'user',
+      password: '',
       avatar: `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}`
     });
     setIsDialogOpen(false);
@@ -65,6 +73,11 @@ export const UserManagement: React.FC = () => {
   const handleUpdateUser = () => {
     if (!editingUser) return;
     
+    if (newUser.password.length < 6) {
+      toast.error("Password must be at least 6 characters long");
+      return;
+    }
+    
     updateUser({
       ...editingUser,
       ...newUser
@@ -75,6 +88,7 @@ export const UserManagement: React.FC = () => {
       name: '',
       email: '',
       role: 'user',
+      password: '',
       avatar: `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}`
     });
     setIsDialogOpen(false);
@@ -106,8 +120,10 @@ export const UserManagement: React.FC = () => {
                   name: '',
                   email: '',
                   role: 'user',
+                  password: '',
                   avatar: `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}`
                 });
+                setShowPassword(false);
               }}
             >
               <Plus className="mr-2 h-4 w-4" />
@@ -149,6 +165,35 @@ export const UserManagement: React.FC = () => {
                   onChange={(e) => setNewUser({...newUser, email: e.target.value})}
                   className="col-span-3"
                 />
+              </div>
+              
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="password" className="text-right">
+                  Password
+                </Label>
+                <div className="col-span-3 relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={newUser.password}
+                    onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                    placeholder={editingUser ? "Enter new password" : "Enter password"}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full px-3"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4 text-gray-500" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-gray-500" />
+                    )}
+                  </Button>
+                </div>
               </div>
               
               <div className="grid grid-cols-4 items-center gap-4">

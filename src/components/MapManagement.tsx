@@ -21,7 +21,7 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Plus, MapPin, Pencil, Trash2 } from 'lucide-react';
+import { Plus, MapPin, Pencil, Trash2, Image as ImageIcon } from 'lucide-react';
 import { FloorMap } from './FloorMap';
 
 export const MapManagement: React.FC = () => {
@@ -80,6 +80,57 @@ export const MapManagement: React.FC = () => {
   const handleEditMapDesks = (mapId: string) => {
     setEditingMapId(mapId);
     setIsEditMapOpen(true);
+  };
+  
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, mapId?: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Check if the file is an image
+    if (!file.type.startsWith('image/')) {
+      toast.error('The file must be an image.');
+      return;
+    }
+    
+    // Check if file size is less than 5MB
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('The image must be less than 5MB in size.');
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const imageUrl = event.target?.result as string;
+      
+      if (mapId) {
+        // Update an existing map
+        const map = maps.find(m => m.id === mapId);
+        if (map) {
+          updateMap({
+            ...map,
+            background: imageUrl
+          });
+          toast.success(`Map background image has been updated.`);
+        }
+      } else if (editingMap) {
+        // Update the map being edited
+        setNewMap({
+          ...newMap,
+          background: imageUrl
+        });
+      } else {
+        // Add background to new map
+        setNewMap({
+          ...newMap,
+          background: imageUrl
+        });
+      }
+    };
+    
+    reader.readAsDataURL(file);
+    
+    // Reset the input value to allow selecting the same file again
+    e.target.value = '';
   };
   
   return (
@@ -152,6 +203,38 @@ export const MapManagement: React.FC = () => {
                   className="col-span-3"
                 />
               </div>
+              
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="background" className="text-right">
+                  Background Image
+                </Label>
+                <div className="col-span-3">
+                  <Input
+                    id="background"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="col-span-3"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Upload an image of your office floor plan (max 5MB)
+                  </p>
+                </div>
+              </div>
+              
+              {newMap.background && (
+                <div className="mt-2">
+                  <Label className="mb-2 block">Preview:</Label>
+                  <div className="relative border rounded-md overflow-hidden" style={{ maxHeight: '200px' }}>
+                    <img 
+                      src={newMap.background} 
+                      alt="Map background preview" 
+                      className="w-full object-contain"
+                      style={{ maxHeight: '200px' }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
             
             <DialogFooter>
@@ -199,6 +282,32 @@ export const MapManagement: React.FC = () => {
                   <span>{map.width} x {map.height}</span>
                 </div>
               </div>
+              
+              {map.background ? (
+                <div className="mt-3 border rounded-md overflow-hidden" style={{ height: '120px' }}>
+                  <img 
+                    src={map.background} 
+                    alt={`${map.name} background`} 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="mt-3 border border-dashed rounded-md flex items-center justify-center" style={{ height: '120px' }}>
+                  <div className="text-center p-4">
+                    <ImageIcon className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                    <label htmlFor={`map-image-${map.id}`} className="text-sm text-blue-500 cursor-pointer hover:text-blue-700">
+                      Upload background image
+                      <Input
+                        id={`map-image-${map.id}`}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleImageUpload(e, map.id)}
+                      />
+                    </label>
+                  </div>
+                </div>
+              )}
             </CardContent>
             <CardFooter className="flex justify-between">
               <Button

@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 // Types
@@ -10,6 +9,7 @@ export interface User {
   email: string;
   role: Role;
   avatar?: string;
+  password: string; // Added password field
 }
 
 export interface Desk {
@@ -28,7 +28,7 @@ export interface Map {
   name: string;
   width: number;
   height: number;
-  background?: string;
+  background?: string; // This will store the image URL
 }
 
 export interface Booking {
@@ -62,6 +62,7 @@ interface BookingContextType {
   addUser: (user: Omit<User, 'id'>) => void;
   updateUser: (user: User) => void;
   deleteUser: (id: string) => void;
+  changePassword: (userId: string, currentPassword: string, newPassword: string) => boolean;
   
   // Bookings
   bookings: Booking[];
@@ -89,6 +90,7 @@ const sampleUsers: User[] = [
     email: 'admin@example.com',
     role: 'admin',
     avatar: 'https://i.pravatar.cc/150?img=68',
+    password: 'admin123', // Default password
   },
   {
     id: '2',
@@ -96,6 +98,7 @@ const sampleUsers: User[] = [
     email: 'john@example.com',
     role: 'user',
     avatar: 'https://i.pravatar.cc/150?img=69',
+    password: 'user123', // Default password
   }
 ];
 
@@ -244,6 +247,25 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setBookings(bookings.filter(b => b.userId !== id));
   };
 
+  // New function to handle password changes
+  const changePassword = (userId: string, currentPassword: string, newPassword: string): boolean => {
+    const userIndex = users.findIndex(u => u.id === userId);
+    if (userIndex === -1) return false;
+    
+    // Verify current password is correct
+    if (users[userIndex].password !== currentPassword) return false;
+    
+    // Update password
+    const updatedUsers = [...users];
+    updatedUsers[userIndex] = {
+      ...updatedUsers[userIndex],
+      password: newPassword
+    };
+    
+    setUsers(updatedUsers);
+    return true;
+  };
+
   // CRUD operations for bookings
   const addBooking = (booking: Omit<Booking, 'id'>) => {
     const newBooking = { ...booking, id: crypto.randomUUID() };
@@ -300,6 +322,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         addUser,
         updateUser,
         deleteUser,
+        changePassword,
         bookings,
         addBooking,
         cancelBooking,

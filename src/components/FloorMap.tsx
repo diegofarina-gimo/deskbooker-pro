@@ -337,7 +337,11 @@ export const FloorMap: React.FC<FloorMapProps> = ({
             height: `${currentMap.height}px`,
             transform: `scale(${scale}) translate(${translate.x/scale}px, ${translate.y/scale}px)`,
             transformOrigin: 'top left',
-            boxShadow: 'inset 0 0 0 1px rgba(0, 0, 0, 0.05)'
+            boxShadow: 'inset 0 0 0 1px rgba(0, 0, 0, 0.05)',
+            backgroundImage: currentMap.background ? `url(${currentMap.background})` : 'none',
+            backgroundSize: 'contain',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat'
           }}
           onDrop={handleDrop}
           onDragOver={handleDragOver}

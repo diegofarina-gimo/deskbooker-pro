@@ -14,24 +14,34 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useNavigate } from 'react-router-dom';
+import { EyeIcon, EyeOffIcon } from 'lucide-react';
 
 const Login = () => {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const { users, setCurrentUser } = useBooking();
   const navigate = useNavigate();
   
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    const user = users.find(u => 
+      u.email.toLowerCase() === email.toLowerCase() && 
+      u.password === password
+    );
     
     if (user) {
       setCurrentUser(user);
       navigate('/dashboard');
       toast.success(`Welcome back, ${user.name}!`);
     } else {
-      toast.error('User not found. Please try again.');
+      toast.error('Invalid email or password. Please try again.');
     }
+  };
+  
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
   };
   
   return (
@@ -46,7 +56,7 @@ const Login = () => {
           <CardHeader>
             <CardTitle>Welcome Back</CardTitle>
             <CardDescription>
-              Enter your email to sign in to your account
+              Enter your credentials to sign in to your account
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleLogin}>
@@ -65,6 +75,34 @@ const Login = () => {
                   required
                 />
               </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    placeholder="Enter your password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full px-3"
+                    onClick={togglePasswordVisibility}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? (
+                      <EyeOffIcon className="h-4 w-4 text-gray-500" />
+                    ) : (
+                      <EyeIcon className="h-4 w-4 text-gray-500" />
+                    )}
+                  </Button>
+                </div>
+              </div>
             </CardContent>
             <CardFooter>
               <Button type="submit" className="w-full">
@@ -79,20 +117,12 @@ const Login = () => {
             For demo purposes, use:
           </p>
           <div className="flex flex-col items-center mt-2 space-y-1">
-            <Button
-              variant="link"
-              className="h-auto p-0 text-blue-600"
-              onClick={() => setEmail('admin@example.com')}
-            >
-              admin@example.com (Admin)
-            </Button>
-            <Button
-              variant="link"
-              className="h-auto p-0 text-blue-600"
-              onClick={() => setEmail('john@example.com')}
-            >
-              john@example.com (User)
-            </Button>
+            <div className="text-xs text-gray-500">
+              admin@example.com / admin123 (Admin)
+            </div>
+            <div className="text-xs text-gray-500">
+              john@example.com / user123 (User)
+            </div>
           </div>
         </div>
       </div>
