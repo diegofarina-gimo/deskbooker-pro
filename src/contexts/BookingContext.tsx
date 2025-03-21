@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 // Types
 export type Role = 'admin' | 'user';
+export type DeskStatus = 'available' | 'booked' | 'maintenance';
 
 export interface User {
   id: string;
@@ -9,7 +10,17 @@ export interface User {
   email: string;
   role: Role;
   avatar?: string;
-  password: string; // Added password field
+  password: string;
+  teamId?: string;
+  bio?: string;
+  phone?: string;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  description?: string;
+  leaderId: string;
 }
 
 export interface Desk {
@@ -19,7 +30,7 @@ export interface Desk {
   y: number;
   width: number;
   height: number;
-  status: 'available' | 'booked';
+  status: DeskStatus;
   mapId: string;
 }
 
@@ -28,7 +39,7 @@ export interface Map {
   name: string;
   width: number;
   height: number;
-  background?: string; // This will store the image URL
+  background?: string;
 }
 
 export interface Booking {
@@ -37,52 +48,51 @@ export interface Booking {
   userId: string;
   date: string;
   isRecurring: boolean;
-  recurringDays?: string[]; // e.g. ['monday', 'wednesday']
+  recurringDays?: string[];
 }
 
 interface BookingContextType {
-  // Current user
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
   
-  // Maps
   maps: Map[];
   addMap: (map: Omit<Map, 'id'>) => void;
   updateMap: (map: Map) => void;
   deleteMap: (id: string) => void;
   
-  // Desks
   desks: Desk[];
   addDesk: (desk: Omit<Desk, 'id'>) => void;
   updateDesk: (desk: Desk) => void;
   deleteDesk: (id: string) => void;
   
-  // Users
   users: User[];
   addUser: (user: Omit<User, 'id'>) => void;
   updateUser: (user: User) => void;
   deleteUser: (id: string) => void;
   changePassword: (userId: string, currentPassword: string, newPassword: string) => boolean;
   
-  // Bookings
+  teams: Team[];
+  addTeam: (team: Omit<Team, 'id'>) => void;
+  updateTeam: (team: Team) => void;
+  deleteTeam: (id: string) => void;
+  getUsersByTeamId: (teamId: string) => User[];
+  
   bookings: Booking[];
   addBooking: (booking: Omit<Booking, 'id'>) => void;
   cancelBooking: (id: string) => void;
   
-  // View state
   selectedDate: Date;
   setSelectedDate: (date: Date) => void;
   selectedMap: string | null;
   setSelectedMap: (id: string | null) => void;
   
-  // Utility functions
   isDeskAvailable: (deskId: string, date: Date) => boolean;
-  getDeskStatus: (deskId: string, date: Date) => 'available' | 'booked';
+  getDeskStatus: (deskId: string, date: Date) => DeskStatus;
   getDeskById: (id: string) => Desk | undefined;
   getUserById: (id: string) => User | undefined;
+  getTeamById: (id: string) => Team | undefined;
 }
 
-// Sample mock data
 const sampleUsers: User[] = [
   {
     id: '1',
@@ -90,7 +100,9 @@ const sampleUsers: User[] = [
     email: 'admin@example.com',
     role: 'admin',
     avatar: 'https://i.pravatar.cc/150?img=68',
-    password: 'admin123', // Default password
+    password: 'admin123',
+    bio: 'System administrator',
+    phone: '555-1234',
   },
   {
     id: '2',
@@ -98,7 +110,19 @@ const sampleUsers: User[] = [
     email: 'john@example.com',
     role: 'user',
     avatar: 'https://i.pravatar.cc/150?img=69',
-    password: 'user123', // Default password
+    password: 'user123',
+    teamId: '1',
+    bio: 'Software developer',
+    phone: '555-5678',
+  }
+];
+
+const sampleTeams: Team[] = [
+  {
+    id: '1',
+    name: 'Engineering',
+    description: 'Software development team',
+    leaderId: '1',
   }
 ];
 
@@ -145,7 +169,7 @@ const sampleDesks: Desk[] = [
     y: 200,
     width: 80,
     height: 50,
-    status: 'available',
+    status: 'maintenance',
     mapId: '1',
   },
   {
@@ -183,23 +207,20 @@ const sampleBookings: Booking[] = [
 const BookingContext = createContext<BookingContextType | undefined>(undefined);
 
 export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // State initialization
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [maps, setMaps] = useState<Map[]>(sampleMaps);
   const [desks, setDesks] = useState<Desk[]>(sampleDesks);
   const [users, setUsers] = useState<User[]>(sampleUsers);
   const [bookings, setBookings] = useState<Booking[]>(sampleBookings);
+  const [teams, setTeams] = useState<Team[]>(sampleTeams);
   
-  // UI state
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedMap, setSelectedMap] = useState<string | null>(sampleMaps[0]?.id || null);
 
-  // Auto-login the admin for demonstration purposes
   useEffect(() => {
     setCurrentUser(sampleUsers[0]);
   }, []);
 
-  // CRUD operations for maps
   const addMap = (map: Omit<Map, 'id'>) => {
     const newMap = { ...map, id: crypto.randomUUID() };
     setMaps([...maps, newMap]);
@@ -211,11 +232,9 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const deleteMap = (id: string) => {
     setMaps(maps.filter(m => m.id !== id));
-    // Also remove any desks associated with this map
     setDesks(desks.filter(d => d.mapId !== id));
   };
 
-  // CRUD operations for desks
   const addDesk = (desk: Omit<Desk, 'id'>) => {
     const newDesk = { ...desk, id: crypto.randomUUID() };
     setDesks([...desks, newDesk]);
@@ -227,11 +246,9 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const deleteDesk = (id: string) => {
     setDesks(desks.filter(d => d.id !== id));
-    // Also remove any bookings for this desk
     setBookings(bookings.filter(b => b.deskId !== id));
   };
 
-  // CRUD operations for users
   const addUser = (user: Omit<User, 'id'>) => {
     const newUser = { ...user, id: crypto.randomUUID() };
     setUsers([...users, newUser]);
@@ -243,19 +260,15 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const deleteUser = (id: string) => {
     setUsers(users.filter(u => u.id !== id));
-    // Also remove any bookings for this user
     setBookings(bookings.filter(b => b.userId !== id));
   };
 
-  // New function to handle password changes
   const changePassword = (userId: string, currentPassword: string, newPassword: string): boolean => {
     const userIndex = users.findIndex(u => u.id === userId);
     if (userIndex === -1) return false;
     
-    // Verify current password is correct
     if (users[userIndex].password !== currentPassword) return false;
     
-    // Update password
     const updatedUsers = [...users];
     updatedUsers[userIndex] = {
       ...updatedUsers[userIndex],
@@ -266,7 +279,30 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return true;
   };
 
-  // CRUD operations for bookings
+  const addTeam = (team: Omit<Team, 'id'>) => {
+    const newTeam = { ...team, id: crypto.randomUUID() };
+    setTeams([...teams, newTeam]);
+  };
+
+  const updateTeam = (team: Team) => {
+    setTeams(teams.map(t => t.id === team.id ? team : t));
+  };
+
+  const deleteTeam = (id: string) => {
+    setTeams(teams.filter(t => t.id !== id));
+    setUsers(users.map(user => 
+      user.teamId === id ? { ...user, teamId: undefined } : user
+    ));
+  };
+
+  const getUsersByTeamId = (teamId: string): User[] => {
+    return users.filter(user => user.teamId === teamId);
+  };
+
+  const getTeamById = (id: string): Team | undefined => {
+    return teams.find(t => t.id === id);
+  };
+
   const addBooking = (booking: Omit<Booking, 'id'>) => {
     const newBooking = { ...booking, id: crypto.randomUUID() };
     setBookings([...bookings, newBooking]);
@@ -276,7 +312,6 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setBookings(bookings.filter(b => b.id !== id));
   };
 
-  // Utility functions
   const formatDateString = (date: Date): string => {
     return date.toISOString().split('T')[0];
   };
@@ -284,6 +319,9 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const isDeskAvailable = (deskId: string, date: Date): boolean => {
     const dateStr = formatDateString(date);
     const weekday = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    
+    const desk = desks.find(d => d.id === deskId);
+    if (desk?.status === 'maintenance') return false;
     
     return !bookings.some(b => 
       b.deskId === deskId && 
@@ -293,7 +331,10 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     );
   };
 
-  const getDeskStatus = (deskId: string, date: Date): 'available' | 'booked' => {
+  const getDeskStatus = (deskId: string, date: Date): DeskStatus => {
+    const desk = desks.find(d => d.id === deskId);
+    if (desk?.status === 'maintenance') return 'maintenance';
+    
     return isDeskAvailable(deskId, date) ? 'available' : 'booked';
   };
 
@@ -303,6 +344,10 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const getUserById = (id: string): User | undefined => {
     return users.find(u => u.id === id);
+  };
+
+  const getTeamById = (id: string): Team | undefined => {
+    return teams.find(t => t.id === id);
   };
 
   return (
@@ -323,6 +368,11 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         updateUser,
         deleteUser,
         changePassword,
+        teams,
+        addTeam,
+        updateTeam,
+        deleteTeam,
+        getUsersByTeamId,
         bookings,
         addBooking,
         cancelBooking,
@@ -333,7 +383,8 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         isDeskAvailable,
         getDeskStatus,
         getDeskById,
-        getUserById
+        getUserById,
+        getTeamById
       }}
     >
       {children}

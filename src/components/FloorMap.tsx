@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { useBooking, Desk, Map } from '@/contexts/BookingContext';
 import { Button } from "@/components/ui/button";
@@ -57,15 +56,20 @@ export const FloorMap: React.FC<FloorMapProps> = ({
   const [generateCount, setGenerateCount] = useState(5);
   const [rowCount, setRowCount] = useState(1);
   
-  // Get the current map
   const currentMap = maps.find(m => m.id === mapId);
   if (!currentMap) return <div>Map not found</div>;
   
-  // Filter desks by map ID
   const mapDesks = desks.filter(desk => desk.mapId === mapId);
   
   const handleAddDesk = () => {
-    addDesk(newDesk);
+    const existingCount = mapDesks.length;
+    const newDeskName = `Desk ${existingCount + 1}`;
+    
+    addDesk({
+      ...newDesk,
+      name: newDeskName
+    });
+    
     setNewDesk({
       name: '',
       x: 0,
@@ -76,7 +80,7 @@ export const FloorMap: React.FC<FloorMapProps> = ({
       mapId: mapId
     });
     setIsDialogOpen(false);
-    toast.success(`Desk ${newDesk.name} has been added to the map.`);
+    toast.success(`Desk ${newDeskName} has been added to the map.`);
   };
   
   const handleEditDesk = (desk: Desk) => {
@@ -112,12 +116,11 @@ export const FloorMap: React.FC<FloorMapProps> = ({
     toast.success(`Desk has been removed from the map.`);
   };
   
-  // Function to automatically generate desks
   const handleGenerateDesks = () => {
     const existingCount = mapDesks.length;
     const desksPerRow = Math.ceil(generateCount / rowCount);
-    const spacingX = 120; // horizontal spacing between desks
-    const spacingY = 120; // vertical spacing between rows
+    const spacingX = 120;
+    const spacingY = 120;
     const startX = (currentMap.width - (desksPerRow * spacingX)) / 2 + 20;
     const startY = (currentMap.height - (rowCount * spacingY)) / 2 + 20;
     
@@ -142,16 +145,15 @@ export const FloorMap: React.FC<FloorMapProps> = ({
     toast.success(`${generateCount} desks have been automatically generated.`);
   };
   
-  // Map navigation functions
   const handleZoom = (factor: number) => {
     setScale(prevScale => {
       const newScale = prevScale * factor;
-      return Math.min(Math.max(0.5, newScale), 2); // Limit scale between 0.5 and 2
+      return Math.min(Math.max(0.5, newScale), 2);
     });
   };
   
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (isEditing) return; // Don't allow panning in edit mode
+    if (isEditing) return;
     
     setIsDragging(true);
     setStartPos({
@@ -265,6 +267,7 @@ export const FloorMap: React.FC<FloorMapProps> = ({
                     value={newDesk.name}
                     onChange={(e) => setNewDesk({...newDesk, name: e.target.value})}
                     className="col-span-3"
+                    placeholder={editingDesk ? undefined : `Desk ${mapDesks.length + 1}`}
                   />
                 </div>
                 
@@ -292,6 +295,23 @@ export const FloorMap: React.FC<FloorMapProps> = ({
                     onChange={(e) => setNewDesk({...newDesk, height: Number(e.target.value)})}
                     className="col-span-3"
                   />
+                </div>
+                
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="status" className="text-right">
+                    Status
+                  </Label>
+                  <div className="col-span-3">
+                    <select 
+                      id="status"
+                      value={newDesk.status}
+                      onChange={(e) => setNewDesk({...newDesk, status: e.target.value as 'available' | 'maintenance'})}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2"
+                    >
+                      <option value="available">Available</option>
+                      <option value="maintenance">Maintenance</option>
+                    </select>
+                  </div>
                 </div>
                 
                 {editingDesk && (
@@ -428,32 +448,43 @@ export const FloorMap: React.FC<FloorMapProps> = ({
       >
         <div 
           ref={mapRef}
-          className="map-content bg-white"
+          className="map-content"
           style={{ 
+            position: 'relative',
             width: `${currentMap.width}px`, 
             height: `${currentMap.height}px`,
             transform: `scale(${scale}) translate(${translate.x/scale}px, ${translate.y/scale}px)`,
             transformOrigin: 'top left',
             boxShadow: 'inset 0 0 0 1px rgba(0, 0, 0, 0.05)',
-            backgroundImage: currentMap.background ? `url(${currentMap.background})` : 'none',
-            backgroundSize: 'contain',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat'
           }}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
         >
-          {/* Render desks */}
-          {mapDesks.map(desk => (
-            <DeskItem 
-              key={desk.id} 
-              desk={desk} 
-              date={date} 
-              isEditing={isEditing}
-              onEdit={handleEditDesk}
-              onDelete={handleDeleteDesk}
+          {currentMap.background && (
+            <div 
+              className="map-background absolute inset-0 pointer-events-none"
+              style={{
+                backgroundImage: `url(${currentMap.background})`,
+                backgroundSize: 'contain',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+                opacity: 0.7
+              }}
             />
-          ))}
+          )}
+          
+          <div className="desks-layer absolute inset-0 z-10">
+            {mapDesks.map(desk => (
+              <DeskItem 
+                key={desk.id} 
+                desk={desk} 
+                date={date} 
+                isEditing={isEditing}
+                onEdit={handleEditDesk}
+                onDelete={handleDeleteDesk}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </div>
