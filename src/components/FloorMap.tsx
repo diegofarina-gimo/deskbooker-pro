@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Move, Grid } from 'lucide-react';
+import { Plus, Move, Grid, Rows } from 'lucide-react';
 import { toast } from "sonner";
 
 interface FloorMapProps {
@@ -53,6 +53,9 @@ export const FloorMap: React.FC<FloorMapProps> = ({
   });
   const [editingDesk, setEditingDesk] = useState<Desk | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
+  const [generateCount, setGenerateCount] = useState(5);
+  const [rowCount, setRowCount] = useState(1);
   
   // Get the current map
   const currentMap = maps.find(m => m.id === mapId);
@@ -107,6 +110,36 @@ export const FloorMap: React.FC<FloorMapProps> = ({
   const handleDeleteDesk = (id: string) => {
     deleteDesk(id);
     toast.success(`Desk has been removed from the map.`);
+  };
+  
+  // Function to automatically generate desks
+  const handleGenerateDesks = () => {
+    const existingCount = mapDesks.length;
+    const desksPerRow = Math.ceil(generateCount / rowCount);
+    const spacingX = 120; // horizontal spacing between desks
+    const spacingY = 120; // vertical spacing between rows
+    const startX = (currentMap.width - (desksPerRow * spacingX)) / 2 + 20;
+    const startY = (currentMap.height - (rowCount * spacingY)) / 2 + 20;
+    
+    for (let r = 0; r < rowCount; r++) {
+      for (let i = 0; i < desksPerRow; i++) {
+        const deskIndex = r * desksPerRow + i;
+        if (deskIndex >= generateCount) break;
+        
+        addDesk({
+          name: `Desk ${existingCount + deskIndex + 1}`,
+          x: startX + (i * spacingX),
+          y: startY + (r * spacingY),
+          width: 80,
+          height: 50,
+          status: 'available',
+          mapId: mapId
+        });
+      }
+    }
+    
+    setIsGenerateDialogOpen(false);
+    toast.success(`${generateCount} desks have been automatically generated.`);
   };
   
   // Map navigation functions
@@ -190,117 +223,181 @@ export const FloorMap: React.FC<FloorMapProps> = ({
       </div>
       
       {isEditing && (
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button 
-              className="absolute bottom-4 right-4 z-10"
-              onClick={() => {
-                setEditingDesk(null);
-                setNewDesk({
-                  name: '',
-                  x: Math.floor(currentMap.width / 2 - 40),
-                  y: Math.floor(currentMap.height / 2 - 25),
-                  width: 80,
-                  height: 50,
-                  status: 'available',
-                  mapId: mapId
-                });
-              }}
-            >
-              Add Desk
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingDesk ? 'Edit Desk' : 'Add New Desk'}</DialogTitle>
-              <DialogDescription>
-                {editingDesk 
-                  ? 'Update the desk properties below.'
-                  : 'Fill in the details for the new desk.'
-                }
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">
-                  Name
-                </Label>
-                <Input
-                  id="name"
-                  value={newDesk.name}
-                  onChange={(e) => setNewDesk({...newDesk, name: e.target.value})}
-                  className="col-span-3"
-                />
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="width" className="text-right">
-                  Width
-                </Label>
-                <Input
-                  id="width"
-                  type="number"
-                  value={newDesk.width}
-                  onChange={(e) => setNewDesk({...newDesk, width: Number(e.target.value)})}
-                  className="col-span-3"
-                />
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="height" className="text-right">
-                  Height
-                </Label>
-                <Input
-                  id="height"
-                  type="number"
-                  value={newDesk.height}
-                  onChange={(e) => setNewDesk({...newDesk, height: Number(e.target.value)})}
-                  className="col-span-3"
-                />
-              </div>
-              
-              {editingDesk && (
-                <>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="x" className="text-right">
-                      X Position
-                    </Label>
-                    <Input
-                      id="x"
-                      type="number"
-                      value={newDesk.x}
-                      onChange={(e) => setNewDesk({...newDesk, x: Number(e.target.value)})}
-                      className="col-span-3"
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="y" className="text-right">
-                      Y Position
-                    </Label>
-                    <Input
-                      id="y"
-                      type="number"
-                      value={newDesk.y}
-                      onChange={(e) => setNewDesk({...newDesk, y: Number(e.target.value)})}
-                      className="col-span-3"
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-            
-            <DialogFooter>
-              <Button
-                type="submit"
-                onClick={editingDesk ? handleUpdateDesk : handleAddDesk}
+        <>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                className="absolute bottom-4 right-4 z-10"
+                onClick={() => {
+                  setEditingDesk(null);
+                  setNewDesk({
+                    name: '',
+                    x: Math.floor(currentMap.width / 2 - 40),
+                    y: Math.floor(currentMap.height / 2 - 25),
+                    width: 80,
+                    height: 50,
+                    status: 'available',
+                    mapId: mapId
+                  });
+                }}
               >
-                {editingDesk ? 'Update Desk' : 'Add Desk'}
+                Add Desk
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{editingDesk ? 'Edit Desk' : 'Add New Desk'}</DialogTitle>
+                <DialogDescription>
+                  {editingDesk 
+                    ? 'Update the desk properties below.'
+                    : 'Fill in the details for the new desk.'
+                  }
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="name" className="text-right">
+                    Name
+                  </Label>
+                  <Input
+                    id="name"
+                    value={newDesk.name}
+                    onChange={(e) => setNewDesk({...newDesk, name: e.target.value})}
+                    className="col-span-3"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="width" className="text-right">
+                    Width
+                  </Label>
+                  <Input
+                    id="width"
+                    type="number"
+                    value={newDesk.width}
+                    onChange={(e) => setNewDesk({...newDesk, width: Number(e.target.value)})}
+                    className="col-span-3"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="height" className="text-right">
+                    Height
+                  </Label>
+                  <Input
+                    id="height"
+                    type="number"
+                    value={newDesk.height}
+                    onChange={(e) => setNewDesk({...newDesk, height: Number(e.target.value)})}
+                    className="col-span-3"
+                  />
+                </div>
+                
+                {editingDesk && (
+                  <>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="x" className="text-right">
+                        X Position
+                      </Label>
+                      <Input
+                        id="x"
+                        type="number"
+                        value={newDesk.x}
+                        onChange={(e) => setNewDesk({...newDesk, x: Number(e.target.value)})}
+                        className="col-span-3"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="y" className="text-right">
+                        Y Position
+                      </Label>
+                      <Input
+                        id="y"
+                        type="number"
+                        value={newDesk.y}
+                        onChange={(e) => setNewDesk({...newDesk, y: Number(e.target.value)})}
+                        className="col-span-3"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+              
+              <DialogFooter>
+                <Button
+                  type="submit"
+                  onClick={editingDesk ? handleUpdateDesk : handleAddDesk}
+                >
+                  {editingDesk ? 'Update Desk' : 'Add Desk'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          
+          <Dialog open={isGenerateDialogOpen} onOpenChange={setIsGenerateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                className="absolute bottom-4 left-4 z-10"
+                variant="secondary"
+                onClick={() => setIsGenerateDialogOpen(true)}
+              >
+                <Plus className="mr-2" size={18} />
+                Generate Desks
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Generate Multiple Desks</DialogTitle>
+                <DialogDescription>
+                  Automatically create multiple desks with sequential numbering.
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="count" className="text-right">
+                    Number of Desks
+                  </Label>
+                  <Input
+                    id="count"
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={generateCount}
+                    onChange={(e) => setGenerateCount(Math.min(50, Math.max(1, Number(e.target.value))))}
+                    className="col-span-3"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="rows" className="text-right">
+                    Number of Rows
+                  </Label>
+                  <Input
+                    id="rows"
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={rowCount}
+                    onChange={(e) => setRowCount(Math.min(10, Math.max(1, Number(e.target.value))))}
+                    className="col-span-3"
+                  />
+                </div>
+              </div>
+              
+              <DialogFooter>
+                <Button
+                  type="submit"
+                  onClick={handleGenerateDesks}
+                >
+                  Generate Desks
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </>
       )}
       
       {isEditing && (
