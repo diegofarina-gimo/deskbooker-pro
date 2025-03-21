@@ -261,12 +261,12 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const isDeskAvailable = (deskId: string, date: Date): boolean => {
     const dateStr = formatDateString(date);
+    const weekday = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    
     return !bookings.some(b => 
       b.deskId === deskId && 
       (b.date === dateStr || 
-        (b.isRecurring && b.recurringDays?.includes(
-          date.toLocaleDateString('en-US', { weekday: 'lowercase' })
-        ))
+        (b.isRecurring && b.recurringDays?.includes(weekday))
       )
     );
   };
