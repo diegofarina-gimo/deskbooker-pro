@@ -11,7 +11,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { BookingForm } from './BookingForm';
-import { Tool, AlertTriangle } from 'lucide-react';
+import { Wrench, AlertTriangle } from 'lucide-react';
 
 interface DeskItemProps {
   desk: Desk;
@@ -53,7 +53,7 @@ export const DeskItem: React.FC<DeskItemProps> = ({
       bgColor = 'bg-yellow-50';
       borderColor = 'border-yellow-400';
       textColor = 'text-yellow-800';
-      icon = <Tool className="h-3 w-3" />;
+      icon = <Wrench className="h-3 w-3" />;
       break;
   }
 

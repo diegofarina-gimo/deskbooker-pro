@@ -346,10 +346,6 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return users.find(u => u.id === id);
   };
 
-  const getTeamById = (id: string): Team | undefined => {
-    return teams.find(t => t.id === id);
-  };
-
   return (
     <BookingContext.Provider
       value={{
