@@ -8,20 +8,10 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { BookingForm } from './BookingForm';
 import { cn } from '@/lib/utils';
-import { CalendarClock, CheckCircle, XCircle, Clock } from 'lucide-react';
-
-interface TimeSlotInfo {
-  startTime: string;
-  endTime: string;
-  isBooked: boolean;
-  bookingId?: string;
-  userId?: string;
-  userName?: string;
-}
+import { CalendarClock, XCircle, Clock, User } from 'lucide-react';
 
 interface MeetingRoomTimetableProps {
   room: Desk;
@@ -48,117 +38,95 @@ export const MeetingRoomTimetable: React.FC<MeetingRoomTimetableProps> = ({
   const currentTimeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   const isToday = date.toDateString() === new Date().toDateString();
   
-  // Generate all time slots for the day
-  const generateTimeSlots = (): TimeSlotInfo[] => {
-    const slots: TimeSlotInfo[] = [];
-    
-    // Office hours from 9 AM to 5 PM
-    for (let hour = 9; hour < 18; hour++) {
-      for (let minute = 0; minute < 60; minute += 30) {
-        const nextHour = minute === 30 ? hour + 1 : hour;
-        const nextMinute = minute === 30 ? 0 : 30;
-        
-        const startTime = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-        const endTime = `${nextHour.toString().padStart(2, '0')}:${nextMinute.toString().padStart(2, '0')}`;
-        
-        if (nextHour >= 18) continue; // Skip slots that end after 6 PM
-        
-        const roomBookings = bookings.filter(b => 
-          b.deskId === room.id && 
-          b.date === dateStr &&
-          b.timeSlot
-        );
-        
-        // Check if this time slot overlaps with any booking
-        const isBooked = roomBookings.some(booking => {
-          if (!booking.timeSlot) return false;
-          
-          const bookingStart = booking.timeSlot.startTime;
-          const bookingEnd = booking.timeSlot.endTime;
-          
-          // Convert times to minutes for easier comparison
-          const slotStartMinutes = hour * 60 + minute;
-          const slotEndMinutes = nextHour * 60 + nextMinute;
-          const bookingStartMinutes = parseInt(bookingStart.split(':')[0]) * 60 + parseInt(bookingStart.split(':')[1]);
-          const bookingEndMinutes = parseInt(bookingEnd.split(':')[0]) * 60 + parseInt(bookingEnd.split(':')[1]);
-          
-          // Check for overlap
-          return (slotStartMinutes < bookingEndMinutes && slotEndMinutes > bookingStartMinutes);
-        });
-        
-        const overlappingBooking = roomBookings.find(booking => {
-          if (!booking.timeSlot) return false;
-          
-          const bookingStart = booking.timeSlot.startTime;
-          const bookingEnd = booking.timeSlot.endTime;
-          
-          // Convert times to minutes for easier comparison
-          const slotStartMinutes = hour * 60 + minute;
-          const slotEndMinutes = nextHour * 60 + nextMinute;
-          const bookingStartMinutes = parseInt(bookingStart.split(':')[0]) * 60 + parseInt(bookingStart.split(':')[1]);
-          const bookingEndMinutes = parseInt(bookingEnd.split(':')[0]) * 60 + parseInt(bookingEnd.split(':')[1]);
-          
-          // Check for overlap
-          return (slotStartMinutes < bookingEndMinutes && slotEndMinutes > bookingStartMinutes);
-        });
-        
-        const bookingId = overlappingBooking?.id;
-        const userId = overlappingBooking?.userId;
-        const userName = userId ? getUserById(userId)?.name : undefined;
-        
-        slots.push({
-          startTime,
-          endTime,
-          isBooked,
-          bookingId,
-          userId,
-          userName
-        });
-      }
-    }
-    
-    return slots;
-  };
-  
-  const timeSlots = generateTimeSlots();
+  // Get only the bookings for this room and date
+  const roomBookings = bookings
+    .filter(b => b.deskId === room.id && b.date === dateStr && b.timeSlot)
+    .map(booking => {
+      const user = getUserById(booking.userId);
+      return {
+        id: booking.id,
+        userId: booking.userId,
+        userName: user?.name || 'Unknown User',
+        timeSlot: booking.timeSlot,
+        isPast: isToday && booking.timeSlot && booking.timeSlot.endTime < currentTimeString,
+        isCurrent: isToday && booking.timeSlot && 
+                  currentTimeString >= booking.timeSlot.startTime && 
+                  currentTimeString <= booking.timeSlot.endTime,
+        isCurrentUserBooking: booking.userId === currentUser?.id
+      };
+    })
+    .sort((a, b) => {
+      if (!a.timeSlot || !b.timeSlot) return 0;
+      return a.timeSlot.startTime.localeCompare(b.timeSlot.startTime);
+    });
   
   const handleBookClick = (timeSlot: TimeSlot) => {
     setSelectedTimeSlot(timeSlot);
     setBookingDialogOpen(true);
   };
   
+  const handleNewBooking = () => {
+    // Default to next available full hour
+    const currentHour = now.getHours();
+    const nextHour = currentHour + 1;
+    const startTime = `${String(nextHour).padStart(2, '0')}:00`;
+    const endTime = `${String(nextHour + 1).padStart(2, '0')}:00`;
+    
+    setSelectedTimeSlot({
+      startTime,
+      endTime
+    });
+    setBookingDialogOpen(true);
+  };
+  
   // For compact view (grid layout)
   if (compact) {
+    if (roomBookings.length === 0) {
+      return (
+        <div className="text-center py-8 bg-gray-50 rounded-md">
+          <p className="text-gray-500">No meetings scheduled for this day</p>
+          <Button 
+            size="sm" 
+            onClick={handleNewBooking} 
+            className="mt-4 gap-1"
+          >
+            <CalendarClock className="h-3.5 w-3.5" />
+            Book Meeting
+          </Button>
+        </div>
+      );
+    }
+    
     return (
       <div className="space-y-2">
-        <div className="grid grid-cols-5 gap-1">
-          {timeSlots.map((slot, index) => {
-            const isPast = isToday && slot.endTime < currentTimeString;
-            const now = isToday && currentTimeString >= slot.startTime && currentTimeString <= slot.endTime;
-            
-            return (
-              <div 
-                key={index}
-                className={cn(
-                  "aspect-square rounded-md flex items-center justify-center text-xs font-medium shadow-sm",
-                  slot.isBooked 
-                    ? "bg-red-100 text-red-800" 
-                    : "bg-green-100 text-green-800 hover:bg-green-200 cursor-pointer",
-                  isPast && "opacity-60",
-                  now && "ring-2 ring-blue-400"
-                )}
-                title={`${slot.startTime} - ${slot.endTime}${slot.userName ? ` | Booked by: ${slot.userName}` : ''}`}
-                onClick={() => !slot.isBooked && !isPast && handleBookClick({
-                  startTime: slot.startTime,
-                  endTime: slot.endTime
-                })}
-              >
-                {slot.startTime.split(':')[0]}
-                {slot.isBooked && <XCircle className="h-3 w-3 ml-1" />}
+        <div className="grid grid-cols-1 gap-1">
+          {roomBookings.map((booking, index) => (
+            <div 
+              key={index}
+              className={cn(
+                "p-2 rounded-md flex justify-between items-center",
+                booking.isPast ? "bg-gray-100 text-gray-500" : 
+                booking.isCurrent ? "bg-blue-50 border border-blue-200" :
+                "bg-green-50 border border-green-100"
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <Clock className="h-3.5 w-3.5" />
+                <span>{booking.timeSlot?.startTime} - {booking.timeSlot?.endTime}</span>
+                <span className="text-xs ml-2">{booking.userName}</span>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
+        
+        <Button 
+          size="sm" 
+          onClick={handleNewBooking} 
+          className="w-full mt-4 gap-1"
+        >
+          <CalendarClock className="h-3.5 w-3.5" />
+          Book Meeting
+        </Button>
         
         <Dialog open={bookingDialogOpen} onOpenChange={setBookingDialogOpen}>
           <DialogContent onClick={(e) => e.stopPropagation()}>
@@ -181,73 +149,91 @@ export const MeetingRoomTimetable: React.FC<MeetingRoomTimetableProps> = ({
   
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-2">
-        {timeSlots.map((slot, index) => {
-          const isPast = isToday && slot.endTime < currentTimeString;
-          const now = isToday && currentTimeString >= slot.startTime && currentTimeString <= slot.endTime;
-          
-          return (
+      {roomBookings.length === 0 ? (
+        <div className="text-center py-12 bg-gray-50 rounded-md">
+          <p className="text-gray-500 mb-2">No meetings scheduled for this day</p>
+          <Button 
+            onClick={handleNewBooking} 
+            className="mt-2 gap-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+          >
+            <CalendarClock className="h-4 w-4" />
+            Book Meeting
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3">
+          {roomBookings.map((booking, index) => (
             <div 
               key={index} 
               className={cn(
-                "p-3 rounded-lg flex justify-between items-center shadow-sm border transition-all duration-200",
-                slot.isBooked 
-                  ? "bg-red-50 border-red-100" 
-                  : "bg-gradient-to-r from-green-50 to-green-100 border-green-100 hover:shadow-md hover:-translate-y-0.5",
-                isPast && "opacity-60",
-                now && "ring-2 ring-blue-400"
+                "p-4 rounded-lg flex justify-between items-center shadow-sm border transition-all duration-200",
+                booking.isPast 
+                  ? "bg-gray-50 border-gray-100 opacity-60" 
+                  : booking.isCurrent
+                    ? "bg-blue-50 border-blue-100 ring-2 ring-blue-300"
+                    : "bg-gradient-to-r from-green-50 to-green-100 border-green-100"
               )}
             >
               <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-sm">
-                  <CalendarClock 
-                    className={cn(
-                      "w-5 h-5",
-                      slot.isBooked ? "text-red-500" : "text-green-500"
-                    )} 
-                  />
+                <div className={cn(
+                  "flex items-center justify-center w-10 h-10 rounded-full shadow-sm",
+                  booking.isPast ? "bg-gray-100" : 
+                  booking.isCurrent ? "bg-blue-100" : "bg-white"
+                )}>
+                  <Clock className={cn(
+                    "w-5 h-5",
+                    booking.isPast ? "text-gray-400" : 
+                    booking.isCurrent ? "text-blue-500" : "text-green-500"
+                  )} />
                 </div>
                 <div>
                   <span className="font-medium text-gray-800 flex items-center gap-2">
-                    {slot.startTime} - {slot.endTime}
-                    {now && (
+                    {booking.timeSlot?.startTime} - {booking.timeSlot?.endTime}
+                    {booking.isCurrent && (
                       <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full flex items-center">
                         <Clock className="h-3 w-3 mr-1" />Current
                       </span>
                     )}
+                    {booking.isPast && (
+                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full flex items-center">
+                        <Clock className="h-3 w-3 mr-1" />Past
+                      </span>
+                    )}
                   </span>
-                  {slot.userName && (
-                    <span className="text-sm text-gray-500 flex items-center mt-0.5">
-                      Booked by: {slot.userName}
-                    </span>
-                  )}
+                  <span className="text-sm text-gray-500 flex items-center gap-1 mt-0.5">
+                    <User className="h-3 w-3" />
+                    {booking.userName}
+                  </span>
                 </div>
               </div>
               
-              {!slot.isBooked && !isPast && (
+              {(booking.isCurrentUserBooking || currentUser?.role === 'admin') && (
                 <Button 
-                  size="sm" 
-                  onClick={() => handleBookClick({
-                    startTime: slot.startTime,
-                    endTime: slot.endTime
-                  })}
-                  className="gap-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-sm"
+                  size="sm"
+                  variant="ghost"
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                  onClick={() => {
+                    const { cancelBooking } = useBooking();
+                    cancelBooking(booking.id);
+                  }}
                 >
-                  <CheckCircle className="h-3.5 w-3.5" />
-                  Book
+                  <XCircle className="h-4 w-4" />
                 </Button>
               )}
-              
-              {slot.isBooked && (
-                <div className="px-3 py-1 bg-red-100 text-red-800 text-sm font-medium rounded-full flex items-center">
-                  <XCircle className="h-3.5 w-3.5 mr-1" />
-                  Booked
-                </div>
-              )}
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
+      
+      {roomBookings.length > 0 && (
+        <Button 
+          onClick={handleNewBooking} 
+          className="w-full mt-2 gap-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+        >
+          <CalendarClock className="h-4 w-4" />
+          Book Another Meeting
+        </Button>
+      )}
       
       <Dialog open={bookingDialogOpen} onOpenChange={setBookingDialogOpen}>
         <DialogContent onClick={(e) => e.stopPropagation()}>
