@@ -9,9 +9,16 @@ import { TeamBookingsView } from '@/components/TeamBookingsView';
 import { BookingStats } from '@/components/BookingStats';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIsMobile } from '@/hooks/use-mobile';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 
 const Dashboard = () => {
-  const { currentUser, selectedMap, maps, selectedDate } = useBooking();
+  const { currentUser, selectedMap, maps, selectedDate, setSelectedMap } = useBooking();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   
@@ -55,18 +62,41 @@ const Dashboard = () => {
           
           <TabsContent value="map" className="animate-slideIn">
             <div className="p-4 md:p-6 space-y-6">
-              {selectedMap ? (
-                <div className="bg-white rounded-lg shadow-sm border p-4">
-                  <h2 className="text-xl font-semibold mb-4">
-                    {maps.find(m => m.id === selectedMap)?.name || 'Office Map'}
+              <div className="bg-white rounded-lg shadow-sm border p-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-semibold">
+                    Office Map
                   </h2>
-                  <FloorMap mapId={selectedMap} date={selectedDate} showBookingDetails={true} />
+                  <div className="w-48">
+                    <Select 
+                      value={selectedMap || ''} 
+                      onValueChange={(value) => setSelectedMap(value)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select floor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {maps.map((map) => (
+                          <SelectItem key={map.id} value={map.id}>
+                            {map.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-              ) : (
-                <div className="text-center py-10">
-                  <p className="text-gray-500">Please select a map from the booking overview</p>
-                </div>
-              )}
+                {selectedMap ? (
+                  <FloorMap 
+                    mapId={selectedMap} 
+                    date={selectedDate} 
+                    showBookingDetails={true} 
+                  />
+                ) : (
+                  <div className="text-center py-10">
+                    <p className="text-gray-500">Please select a floor from the dropdown above</p>
+                  </div>
+                )}
+              </div>
             </div>
           </TabsContent>
           
