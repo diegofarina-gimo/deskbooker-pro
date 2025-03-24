@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useBooking, User } from '@/contexts/BookingContext';
 import { 
@@ -36,6 +37,11 @@ import {
 import { toast } from "sonner";
 import { Plus, UserCog, User as UserIcon, Trash2, Eye, EyeOff, Users } from 'lucide-react';
 
+// Define an interface that extends User with password for form usage
+interface UserFormData extends Omit<User, 'id'> {
+  password: string;
+}
+
 export const UserManagement: React.FC = () => {
   const { users, teams, addUser, updateUser, deleteUser, currentUser } = useBooking();
   
@@ -43,7 +49,7 @@ export const UserManagement: React.FC = () => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isTeamPopoverOpen, setIsTeamPopoverOpen] = useState<{[key: string]: boolean}>({});
-  const [newUser, setNewUser] = useState<Omit<User, 'id'>>({
+  const [newUser, setNewUser] = useState<UserFormData>({
     name: '',
     email: '',
     role: 'user',
@@ -57,7 +63,10 @@ export const UserManagement: React.FC = () => {
       return;
     }
     
-    addUser(newUser);
+    // Create a copy without the password to match User type
+    const { password, ...userWithoutPassword } = newUser;
+    addUser(userWithoutPassword);
+    
     setNewUser({
       name: '',
       email: '',
@@ -71,21 +80,28 @@ export const UserManagement: React.FC = () => {
   
   const handleEditUser = (user: User) => {
     setEditingUser(user);
-    setNewUser(user);
+    // Convert User to UserFormData by adding an empty password field
+    setNewUser({
+      ...user,
+      password: ''
+    });
     setIsDialogOpen(true);
   };
   
   const handleUpdateUser = () => {
     if (!editingUser) return;
     
-    if (newUser.password.length < 6) {
+    if (newUser.password && newUser.password.length < 6) {
       toast.error("Password must be at least 6 characters long");
       return;
     }
     
+    // Create a copy without the password to match User type
+    const { password, ...userWithoutPassword } = newUser;
+    
     updateUser({
       ...editingUser,
-      ...newUser
+      ...userWithoutPassword
     });
     
     setEditingUser(null);

@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User as SupabaseUser } from '@supabase/supabase-js';
@@ -97,7 +96,7 @@ interface BookingContextType {
   getTeamBookings: (teamId: string, date: Date) => Booking[];
   
   bookings: Booking[];
-  addBooking: (booking: Omit<Booking, 'id'>) => boolean;
+  addBooking: (booking: Omit<Booking, 'id'>) => Promise<boolean>;
   cancelBooking: (id: string) => void;
   
   selectedDate: Date;
@@ -154,7 +153,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 id: data.id,
                 name: data.name,
                 email: data.email,
-                role: data.role,
+                role: data.role as Role,
                 avatar: data.avatar,
                 teamId: data.team_id,
                 bio: data.bio,
@@ -189,7 +188,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 id: data.id,
                 name: data.name,
                 email: data.email,
-                role: data.role,
+                role: data.role as Role,
                 avatar: data.avatar,
                 teamId: data.team_id,
                 bio: data.bio,
@@ -199,7 +198,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
             }
             setIsLoading(false);
           })
-          .catch(error => {
+          .catch((error) => {
             console.error("Error fetching user profile:", error);
             setIsLoading(false);
           });
@@ -248,9 +247,9 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
           y: resource.y,
           width: resource.width,
           height: resource.height,
-          status: resource.status,
+          status: resource.status as DeskStatus,
           mapId: resource.map_id,
-          type: resource.type,
+          type: resource.type as ResourceType,
           capacity: resource.capacity
         })));
       }
@@ -280,7 +279,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
           id: user.id,
           name: user.name,
           email: user.email,
-          role: user.role,
+          role: user.role as Role,
           avatar: user.avatar,
           teamId: user.team_id,
           bio: user.bio,
