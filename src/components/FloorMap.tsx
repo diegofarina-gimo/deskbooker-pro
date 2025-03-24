@@ -1,6 +1,5 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { useBooking, type Desk } from '@/contexts/BookingContext';
+import { useBooking, type Desk, type ResourceType } from '@/contexts/BookingContext';
 import { Button } from "@/components/ui/button";
 import { DeskItem } from './DeskItem';
 import { 
@@ -14,7 +13,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Move, Grid, Rows, Crosshair, Calendar as CalendarIcon } from 'lucide-react';
+import { 
+  Plus, 
+  Move, 
+  Grid, 
+  Rows, 
+  Crosshair, 
+  Calendar as CalendarIcon,
+  LucideIcon
+} from 'lucide-react';
 import { toast } from "sonner";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -23,6 +30,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { format } from "date-fns";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface FloorMapProps {
   mapId: string;
@@ -64,23 +72,23 @@ export const FloorMap: React.FC<FloorMapProps> = ({
     width: 80,
     height: 50,
     status: 'available',
-    mapId: mapId
+    mapId: mapId,
+    type: 'desk',
   });
   const [editingDesk, setEditingDesk] = useState<Desk | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isResourceDialogOpen, setIsResourceDialogOpen] = useState(false);
   const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
   const [generateCount, setGenerateCount] = useState(5);
   const [rowCount, setRowCount] = useState(1);
   const [showGrid, setShowGrid] = useState(isEditing);
   
-  // Sync selected date with context date when necessary
   useEffect(() => {
     if (!isEditing) {
       setSelectedDate(contextDate);
     }
   }, [contextDate, isEditing]);
 
-  // Update context date when selected date changes
   useEffect(() => {
     if (!isEditing) {
       setContextDate(selectedDate);
@@ -92,11 +100,11 @@ export const FloorMap: React.FC<FloorMapProps> = ({
   
   const mapDesks = desks.filter(desk => desk.mapId === mapId);
   
-  // Get the next desk number based on existing desks
-  const getNextDeskNumber = () => {
+  const getNextDeskNumber = (prefix = 'Desk') => {
     const deskNumbers = mapDesks
+      .filter(desk => desk.name.startsWith(prefix))
       .map(desk => {
-        const match = desk.name.match(/Desk\s+(\d+)/i);
+        const match = desk.name.match(new RegExp(`${prefix}\\s+(\\d+)`, 'i'));
         return match ? parseInt(match[1], 10) : 0;
       })
       .filter(num => !isNaN(num));
@@ -105,20 +113,36 @@ export const FloorMap: React.FC<FloorMapProps> = ({
     return maxNumber + 1;
   };
 
-  // Set default desk name on dialog open
   useEffect(() => {
     if (isDialogOpen && !editingDesk) {
       setNewDesk(prev => ({
         ...prev,
-        name: `Desk ${getNextDeskNumber()}`
+        name: `Desk ${getNextDeskNumber()}`,
+        type: 'desk'
       }));
     }
   }, [isDialogOpen, editingDesk]);
   
+  useEffect(() => {
+    if (isResourceDialogOpen) {
+      setNewDesk(prev => ({
+        ...prev,
+        name: `Meeting Room ${getNextDeskNumber('Meeting Room')}`,
+        type: 'meeting_room',
+        capacity: 4
+      }));
+    }
+  }, [isResourceDialogOpen]);
+  
   const handleAddDesk = () => {
+    const resourceType = newDesk.type || 'desk';
+    const defaultName = resourceType === 'desk' 
+      ? `Desk ${getNextDeskNumber()}`
+      : `Meeting Room ${getNextDeskNumber('Meeting Room')}`;
+
     addDesk({
       ...newDesk,
-      name: newDesk.name || `Desk ${getNextDeskNumber()}`
+      name: newDesk.name || defaultName
     });
     
     setNewDesk({
@@ -128,10 +152,12 @@ export const FloorMap: React.FC<FloorMapProps> = ({
       width: 80,
       height: 50,
       status: 'available',
-      mapId: mapId
+      mapId: mapId,
+      type: 'desk',
     });
     setIsDialogOpen(false);
-    toast.success(`Desk ${newDesk.name} has been added to the map.`);
+    setIsResourceDialogOpen(false);
+    toast.success(`${newDesk.type === 'meeting_room' ? 'Meeting Room' : 'Desk'} ${newDesk.name} has been added to the map.`);
   };
   
   const handleEditDesk = (desk: Desk) => {
@@ -156,15 +182,16 @@ export const FloorMap: React.FC<FloorMapProps> = ({
       width: 80,
       height: 50,
       status: 'available',
-      mapId: mapId
+      mapId: mapId,
+      type: 'desk',
     });
     setIsDialogOpen(false);
-    toast.success(`Desk ${newDesk.name} has been updated.`);
+    toast.success(`${newDesk.type === 'meeting_room' ? 'Meeting Room' : 'Desk'} ${newDesk.name} has been updated.`);
   };
   
   const handleDeleteDesk = (id: string) => {
     deleteDesk(id);
-    toast.success(`Desk has been removed from the map.`);
+    toast.success(`Resource has been removed from the map.`);
   };
   
   const handleGenerateDesks = () => {
@@ -186,7 +213,8 @@ export const FloorMap: React.FC<FloorMapProps> = ({
           width: 80,
           height: 50,
           status: 'available',
-          mapId: mapId
+          mapId: mapId,
+          type: 'desk',
         });
       }
     }
@@ -253,7 +281,7 @@ export const FloorMap: React.FC<FloorMapProps> = ({
       y
     });
     
-    toast.success(`Desk ${desk.name} has been moved.`);
+    toast.success(`${desk.type === 'meeting_room' ? 'Meeting Room' : 'Desk'} ${desk.name} has been moved.`);
   };
   
   const handleDragOver = (e: React.DragEvent) => {
@@ -265,14 +293,12 @@ export const FloorMap: React.FC<FloorMapProps> = ({
     setTranslate({ x: 0, y: 0 });
   };
   
-  // Fixed: Check if clicking on an existing desk before adding a new one
   const handleMapClick = (e: React.MouseEvent) => {
     if (!isEditing || !mapRef.current) return;
     
-    // Check if clicked on an existing desk (don't add new desk in that case)
     const target = e.target as Element;
     if (target.closest('.desk')) {
-      return; // Don't add a new desk if clicking on an existing one
+      return;
     }
     
     const rect = mapRef.current.getBoundingClientRect();
@@ -283,7 +309,8 @@ export const FloorMap: React.FC<FloorMapProps> = ({
       ...newDesk,
       x,
       y,
-      name: `Desk ${getNextDeskNumber()}`
+      name: `Desk ${getNextDeskNumber()}`,
+      type: 'desk'
     });
     
     setIsDialogOpen(true);
@@ -293,7 +320,6 @@ export const FloorMap: React.FC<FloorMapProps> = ({
     setShowGrid(!showGrid);
   };
   
-  // Calculate grid cells
   const gridSizeX = 50;
   const gridSizeY = 50;
   const gridCellsX = Math.ceil(currentMap.width / gridSizeX);
@@ -353,31 +379,12 @@ export const FloorMap: React.FC<FloorMapProps> = ({
       {isEditing && (
         <>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button 
-                className="absolute bottom-4 right-4 z-10"
-                onClick={() => {
-                  setEditingDesk(null);
-                  setNewDesk({
-                    name: `Desk ${getNextDeskNumber()}`,
-                    x: Math.floor(currentMap.width / 2 - 40),
-                    y: Math.floor(currentMap.height / 2 - 25),
-                    width: 80,
-                    height: 50,
-                    status: 'available',
-                    mapId: mapId
-                  });
-                }}
-              >
-                Add Desk
-              </Button>
-            </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>{editingDesk ? 'Edit Desk' : 'Add New Desk'}</DialogTitle>
+                <DialogTitle>{editingDesk ? 'Edit Resource' : 'Add New Desk'}</DialogTitle>
                 <DialogDescription>
                   {editingDesk 
-                    ? 'Update the desk properties below.'
+                    ? 'Update the resource properties below.'
                     : 'Fill in the details for the new desk.'
                   }
                 </DialogDescription>
@@ -395,6 +402,46 @@ export const FloorMap: React.FC<FloorMapProps> = ({
                     className="col-span-3"
                   />
                 </div>
+                
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="type" className="text-right">
+                    Type
+                  </Label>
+                  <div className="col-span-3">
+                    <RadioGroup 
+                      value={newDesk.type} 
+                      onValueChange={(value) => setNewDesk({
+                        ...newDesk, 
+                        type: value as ResourceType
+                      })}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="desk" id="desk-type" />
+                        <Label htmlFor="desk-type">Desk</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="meeting_room" id="meeting-room-type" />
+                        <Label htmlFor="meeting-room-type">Meeting Room</Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+                </div>
+                
+                {newDesk.type === 'meeting_room' && (
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="capacity" className="text-right">
+                      Capacity
+                    </Label>
+                    <Input
+                      id="capacity"
+                      type="number"
+                      min="1"
+                      value={newDesk.capacity || 4}
+                      onChange={(e) => setNewDesk({...newDesk, capacity: Number(e.target.value)})}
+                      className="col-span-3"
+                    />
+                  </div>
+                )}
                 
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="width" className="text-right">
@@ -471,11 +518,131 @@ export const FloorMap: React.FC<FloorMapProps> = ({
                   type="submit"
                   onClick={editingDesk ? handleUpdateDesk : handleAddDesk}
                 >
-                  {editingDesk ? 'Update Desk' : 'Add Desk'}
+                  {editingDesk ? 'Update Resource' : 'Add Desk'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </DialogTrigger>
+          
+          <Dialog open={isResourceDialogOpen} onOpenChange={setIsResourceDialogOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                className="absolute bottom-4 right-28 z-10"
+                onClick={() => {
+                  setNewDesk({
+                    name: `Meeting Room ${getNextDeskNumber('Meeting Room')}`,
+                    x: Math.floor(currentMap.width / 2 - 40),
+                    y: Math.floor(currentMap.height / 2 - 25),
+                    width: 80,
+                    height: 50,
+                    status: 'available',
+                    mapId: mapId,
+                    type: 'meeting_room',
+                    capacity: 4
+                  });
+                  setIsResourceDialogOpen(true);
+                }}
+                variant="default"
+                className="bg-blue-500 hover:bg-blue-600 text-white"
+              >
+                Add Resource
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Meeting Room</DialogTitle>
+                <DialogDescription>
+                  Fill in the details for the new meeting room resource.
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="name" className="text-right">
+                    Name
+                  </Label>
+                  <Input
+                    id="name"
+                    value={newDesk.name}
+                    onChange={(e) => setNewDesk({...newDesk, name: e.target.value})}
+                    className="col-span-3"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="capacity" className="text-right">
+                    Capacity
+                  </Label>
+                  <Input
+                    id="capacity"
+                    type="number"
+                    min="1"
+                    value={newDesk.capacity || 4}
+                    onChange={(e) => setNewDesk({...newDesk, capacity: Number(e.target.value)})}
+                    className="col-span-3"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="x" className="text-right">
+                    X Position
+                  </Label>
+                  <Input
+                    id="x"
+                    type="number"
+                    value={Math.round(newDesk.x)}
+                    onChange={(e) => setNewDesk({...newDesk, x: Number(e.target.value)})}
+                    className="col-span-3"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="y" className="text-right">
+                    Y Position
+                  </Label>
+                  <Input
+                    id="y"
+                    type="number"
+                    value={Math.round(newDesk.y)}
+                    onChange={(e) => setNewDesk({...newDesk, y: Number(e.target.value)})}
+                    className="col-span-3"
+                  />
+                </div>
+              </div>
+              
+              <DialogFooter>
+                <Button
+                  type="submit"
+                  onClick={handleAddDesk}
+                  className="bg-blue-500 hover:bg-blue-600"
+                >
+                  Add Meeting Room
                 </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          
+          <DialogTrigger asChild>
+            <Button 
+              className="absolute bottom-4 right-4 z-10"
+              onClick={() => {
+                setEditingDesk(null);
+                setNewDesk({
+                  name: `Desk ${getNextDeskNumber()}`,
+                  x: Math.floor(currentMap.width / 2 - 40),
+                  y: Math.floor(currentMap.height / 2 - 25),
+                  width: 80,
+                  height: 50,
+                  status: 'available',
+                  mapId: mapId,
+                  type: 'desk'
+                });
+                setIsDialogOpen(true);
+              }}
+            >
+              Add Desk
+            </Button>
+          </DialogTrigger>
           
           <Dialog open={isGenerateDialogOpen} onOpenChange={setIsGenerateDialogOpen}>
             <DialogTrigger asChild>
@@ -597,7 +764,6 @@ export const FloorMap: React.FC<FloorMapProps> = ({
           
           {showGrid && (
             <div className="grid-overlay absolute inset-0 pointer-events-none">
-              {/* Vertical grid lines */}
               {Array.from({ length: gridCellsX + 1 }).map((_, i) => (
                 <div
                   key={`v-${i}`}
@@ -609,7 +775,6 @@ export const FloorMap: React.FC<FloorMapProps> = ({
                 />
               ))}
               
-              {/* Horizontal grid lines */}
               {Array.from({ length: gridCellsY + 1 }).map((_, i) => (
                 <div
                   key={`h-${i}`}
@@ -621,7 +786,6 @@ export const FloorMap: React.FC<FloorMapProps> = ({
                 />
               ))}
               
-              {/* Grid coordinates */}
               {Array.from({ length: gridCellsX }).map((_, i) => (
                 <div
                   key={`x-${i}`}

@@ -11,7 +11,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { BookingForm } from './BookingForm';
-import { Wrench, AlertTriangle, User } from 'lucide-react';
+import { Wrench, AlertTriangle, User, Users } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface DeskItemProps {
@@ -39,7 +39,7 @@ export const DeskItem: React.FC<DeskItemProps> = ({
   const bookedUser = booking ? getUserById(booking.userId) : null;
   const userTeam = bookedUser?.teamId ? getTeamById(bookedUser.teamId) : null;
 
-  // Get dot color based on status and team
+  // Get dot color based on status and type
   let dotColor = '#4CAF50'; // Green for available
   let borderColor = 'border-green-400';
   let textColor = 'text-green-800';
@@ -47,30 +47,57 @@ export const DeskItem: React.FC<DeskItemProps> = ({
   let statusText = 'Available';
   let icon = null;
 
-  switch (status) {
-    case 'available':
-      dotColor = '#4CAF50'; // Green
-      bgColor = 'bg-green-50';
-      borderColor = 'border-green-400';
-      textColor = 'text-green-800';
-      statusText = 'Available';
-      break;
-    case 'booked':
-      dotColor = userTeam?.color || '#3B82F6'; // Team color or default blue
-      bgColor = 'bg-blue-50';
+  const isBookable = status === 'available';
+  const isBooked = status === 'booked';
+  const isMeetingRoom = desk.type === 'meeting_room';
+
+  // For meeting rooms, use blue color theme
+  if (isMeetingRoom) {
+    if (isBookable) {
+      dotColor = '#1EAEDB'; // Blue for available meeting room
       borderColor = 'border-blue-400';
       textColor = 'text-blue-800';
+      statusText = 'Available';
+    } else if (isBooked) {
+      dotColor = '#9F9EA1'; // Grey for booked meeting room
+      borderColor = 'border-gray-400';
+      textColor = 'text-gray-800';
       statusText = 'Booked';
-      icon = <User className="h-3 w-3" />;
-      break;
-    case 'maintenance':
-      dotColor = '#F59E0B'; // Amber/orange
-      bgColor = 'bg-yellow-50';
+      icon = <Users className="h-3 w-3" />;
+    } else {
+      dotColor = '#F59E0B'; // Amber/orange for maintenance
       borderColor = 'border-yellow-400';
       textColor = 'text-yellow-800';
       statusText = 'Maintenance';
       icon = <Wrench className="h-3 w-3" />;
-      break;
+    }
+  } else {
+    // For regular desks
+    switch (status) {
+      case 'available':
+        dotColor = '#4CAF50'; // Green
+        bgColor = 'bg-green-50';
+        borderColor = 'border-green-400';
+        textColor = 'text-green-800';
+        statusText = 'Available';
+        break;
+      case 'booked':
+        dotColor = '#9F9EA1'; // Grey for booked
+        bgColor = 'bg-gray-50';
+        borderColor = 'border-gray-400';
+        textColor = 'text-gray-800';
+        statusText = 'Booked';
+        icon = <User className="h-3 w-3" />;
+        break;
+      case 'maintenance':
+        dotColor = '#F59E0B'; // Amber/orange
+        bgColor = 'bg-yellow-50';
+        borderColor = 'border-yellow-400';
+        textColor = 'text-yellow-800';
+        statusText = 'Maintenance';
+        icon = <Wrench className="h-3 w-3" />;
+        break;
+    }
   }
 
   const handleDragStart = (e: React.DragEvent) => {
@@ -122,9 +149,14 @@ export const DeskItem: React.FC<DeskItemProps> = ({
                   <div className="flex items-center gap-1">
                     <div
                       className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: userTeam.color || '#3B82F6' }}
+                      style={{ backgroundColor: '#9F9EA1' }}
                     ></div>
                     <span className="truncate">{userTeam.name}</span>
+                  </div>
+                )}
+                {booking?.timeSlot && (
+                  <div className="text-xs mt-1">
+                    {booking.timeSlot.startTime} - {booking.timeSlot.endTime}
                   </div>
                 )}
               </div>
@@ -135,13 +167,19 @@ export const DeskItem: React.FC<DeskItemProps> = ({
           <DialogHeader>
             <DialogTitle>{desk.name}</DialogTitle>
             <DialogDescription>
+              {isMeetingRoom ? `Meeting room capacity: ${desk.capacity || 4} people` : ''}
               {status === 'available' 
-                ? 'This desk is available for booking.' 
+                ? `This ${isMeetingRoom ? 'meeting room' : 'desk'} is available for booking.` 
                 : status === 'maintenance'
-                ? 'This desk is currently under maintenance.'
+                ? `This ${isMeetingRoom ? 'meeting room' : 'desk'} is currently under maintenance.`
                 : bookedUser
-                  ? `This desk is booked by ${bookedUser.name}${userTeam ? ` (${userTeam.name})` : ''}.`
-                  : 'This desk is currently booked.'}
+                  ? `This ${isMeetingRoom ? 'meeting room' : 'desk'} is booked by ${bookedUser.name}${userTeam ? ` (${userTeam.name})` : ''}.`
+                  : `This ${isMeetingRoom ? 'meeting room' : 'desk'} is currently booked.`}
+              {booking?.timeSlot && (
+                <div className="mt-1">
+                  Time: {booking.timeSlot.startTime} - {booking.timeSlot.endTime}
+                </div>
+              )}
             </DialogDescription>
           </DialogHeader>
           
@@ -152,13 +190,13 @@ export const DeskItem: React.FC<DeskItemProps> = ({
                   onClick={() => onEdit?.(desk)}
                   className="px-4 py-2 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition-colors"
                 >
-                  Edit Desk
+                  Edit {isMeetingRoom ? 'Meeting Room' : 'Desk'}
                 </button>
                 <button
                   onClick={() => onDelete?.(desk.id)}
                   className="px-4 py-2 bg-red-50 text-red-600 rounded-md hover:bg-red-100 transition-colors"
                 >
-                  Delete Desk
+                  Delete
                 </button>
               </div>
             </div>
@@ -174,7 +212,7 @@ export const DeskItem: React.FC<DeskItemProps> = ({
                     </div>
                     <div className="ml-3">
                       <p className="text-sm text-yellow-700">
-                        This desk is currently unavailable due to maintenance.
+                        This {isMeetingRoom ? 'meeting room' : 'desk'} is currently unavailable due to maintenance.
                       </p>
                     </div>
                   </div>

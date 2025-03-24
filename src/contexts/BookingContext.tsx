@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 // Types
 export type Role = 'admin' | 'user';
 export type DeskStatus = 'available' | 'booked' | 'maintenance';
+export type ResourceType = 'desk' | 'meeting_room';
 
 export interface User {
   id: string;
@@ -14,13 +15,14 @@ export interface User {
   teamId?: string;
   bio?: string;
   phone?: string;
+  isTeamLeader?: boolean;
 }
 
 export interface Team {
   id: string;
   name: string;
   description?: string;
-  leaderId: string;
+  leaderId?: string;
   color?: string;
 }
 
@@ -33,6 +35,8 @@ export interface Desk {
   height: number;
   status: DeskStatus;
   mapId: string;
+  type: ResourceType;
+  capacity?: number;
 }
 
 export interface FloorMap {
@@ -43,6 +47,11 @@ export interface FloorMap {
   background?: string;
 }
 
+export interface TimeSlot {
+  startTime: string; // Format: "HH:MM"
+  endTime: string;   // Format: "HH:MM"
+}
+
 export interface Booking {
   id: string;
   deskId: string;
@@ -50,6 +59,7 @@ export interface Booking {
   date: string;
   isRecurring: boolean;
   recurringDays?: string[];
+  timeSlot?: TimeSlot;
 }
 
 interface BookingContextType {
@@ -80,7 +90,7 @@ interface BookingContextType {
   getTeamBookings: (teamId: string, date: Date) => Booking[];
   
   bookings: Booking[];
-  addBooking: (booking: Omit<Booking, 'id'>) => void;
+  addBooking: (booking: Omit<Booking, 'id'>) => boolean;
   cancelBooking: (id: string) => void;
   
   selectedDate: Date;
@@ -88,12 +98,14 @@ interface BookingContextType {
   selectedMap: string | null;
   setSelectedMap: (id: string | null) => void;
   
-  isDeskAvailable: (deskId: string, date: Date) => boolean;
+  isDeskAvailable: (deskId: string, date: Date, timeSlot?: TimeSlot) => boolean;
   getDeskStatus: (deskId: string, date: Date) => DeskStatus;
   getDeskById: (id: string) => Desk | undefined;
   getUserById: (id: string) => User | undefined;
   getTeamById: (id: string) => Team | undefined;
   getBookingByDeskAndDate: (deskId: string, date: Date) => Booking | undefined;
+  getUserBookingsForDate: (userId: string, date: Date) => Booking[];
+  canUserBookDesk: (userId: string, date: Date) => boolean;
 }
 
 const sampleUsers: User[] = [
@@ -169,6 +181,7 @@ const sampleDesks: Desk[] = [
     height: 50,
     status: 'available',
     mapId: '1',
+    type: 'desk',
   },
   {
     id: '2',
@@ -179,6 +192,7 @@ const sampleDesks: Desk[] = [
     height: 50,
     status: 'available',
     mapId: '1',
+    type: 'desk',
   },
   {
     id: '3',
@@ -189,6 +203,7 @@ const sampleDesks: Desk[] = [
     height: 50,
     status: 'maintenance',
     mapId: '1',
+    type: 'desk',
   },
   {
     id: '4',
@@ -199,6 +214,7 @@ const sampleDesks: Desk[] = [
     height: 50,
     status: 'available',
     mapId: '1',
+    type: 'desk',
   },
   {
     id: '5',
@@ -209,6 +225,7 @@ const sampleDesks: Desk[] = [
     height: 50,
     status: 'available',
     mapId: '1',
+    type: 'desk',
   },
 ];
 
@@ -230,7 +247,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [desks, setDesks] = useState<Desk[]>(sampleDesks);
   const [users, setUsers] = useState<User[]>(sampleUsers);
   const [bookings, setBookings] = useState<Booking[]>(sampleBookings);
-  const [teams, setTeams] = useState<Team[]>(sampleTeams);
+  const [teams, setTeams] = useState<Team[]>(sampleTeams.map(team => ({...team, leaderId: undefined})));
   
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedMap, setSelectedMap] = useState<string | null>(sampleMaps[0]?.id || null);
@@ -254,7 +271,11 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const addDesk = (desk: Omit<Desk, 'id'>) => {
-    const newDesk = { ...desk, id: crypto.randomUUID() };
+    const newDesk = { 
+      ...desk, 
+      id: crypto.randomUUID(),
+      type: desk.type || 'desk'
+    };
     setDesks([...desks, newDesk]);
   };
 
@@ -309,7 +330,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const deleteTeam = (id: string) => {
     setTeams(teams.filter(t => t.id !== id));
     setUsers(users.map(user => 
-      user.teamId === id ? { ...user, teamId: undefined } : user
+      user.teamId === id ? { ...user, teamId: undefined, isTeamLeader: false } : user
     ));
   };
 
@@ -331,9 +352,21 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     );
   };
 
-  const addBooking = (booking: Omit<Booking, 'id'>) => {
+  const addBooking = (booking: Omit<Booking, 'id'>): boolean => {
+    const desk = getDeskById(booking.deskId);
+    
+    if (desk?.type === 'desk' && !canUserBookDesk(booking.userId, new Date(booking.date))) {
+      return false;
+    }
+    
+    if (desk?.type === 'meeting_room' && booking.timeSlot) {
+      const isAvailable = isDeskAvailable(booking.deskId, new Date(booking.date), booking.timeSlot);
+      if (!isAvailable) return false;
+    }
+    
     const newBooking = { ...booking, id: crypto.randomUUID() };
     setBookings([...bookings, newBooking]);
+    return true;
   };
 
   const cancelBooking = (id: string) => {
@@ -344,19 +377,59 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return date.toISOString().split('T')[0];
   };
 
-  const isDeskAvailable = (deskId: string, date: Date): boolean => {
+  const getUserBookingsForDate = (userId: string, date: Date): Booking[] => {
+    const dateStr = formatDateString(date);
+    return bookings.filter(b => b.userId === userId && b.date === dateStr);
+  };
+
+  const canUserBookDesk = (userId: string, date: Date): boolean => {
+    const user = getUserById(userId);
+    if (!user) return false;
+    
+    if (user.role === 'admin') return true;
+    
+    const existingBookings = getUserBookingsForDate(userId, date);
+    const deskBookings = existingBookings.filter(booking => {
+      const desk = getDeskById(booking.deskId);
+      return desk?.type === 'desk';
+    });
+    
+    return deskBookings.length === 0;
+  };
+
+  const isDeskAvailable = (deskId: string, date: Date, timeSlot?: TimeSlot): boolean => {
     const dateStr = formatDateString(date);
     const weekday = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
     
     const desk = desks.find(d => d.id === deskId);
     if (desk?.status === 'maintenance') return false;
     
-    return !bookings.some(b => 
+    const deskBookings = bookings.filter(b => 
       b.deskId === deskId && 
       (b.date === dateStr || 
         (b.isRecurring && b.recurringDays?.includes(weekday))
       )
     );
+    
+    if (desk?.type === 'desk' || !timeSlot) {
+      return deskBookings.length === 0;
+    }
+    
+    return !deskBookings.some(booking => {
+      if (!booking.timeSlot) return true;
+      
+      const bookingStart = timeToMinutes(booking.timeSlot.startTime);
+      const bookingEnd = timeToMinutes(booking.timeSlot.endTime);
+      const requestStart = timeToMinutes(timeSlot.startTime);
+      const requestEnd = timeToMinutes(timeSlot.endTime);
+      
+      return (requestStart < bookingEnd && requestEnd > bookingStart);
+    });
+  };
+
+  const timeToMinutes = (time: string): number => {
+    const [hours, minutes] = time.split(':').map(Number);
+    return (hours * 60) + minutes;
   };
 
   const getDeskStatus = (deskId: string, date: Date): DeskStatus => {
@@ -415,7 +488,9 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         getDeskById,
         getUserById,
         getTeamById,
-        getBookingByDeskAndDate
+        getBookingByDeskAndDate,
+        getUserBookingsForDate,
+        canUserBookDesk
       }}
     >
       {children}

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { useBooking } from '@/contexts/BookingContext';
+import { useBooking, TimeSlot } from '@/contexts/BookingContext';
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { 
@@ -9,7 +9,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { format } from 'date-fns';
-import { CalendarIcon, CheckIcon, XIcon } from 'lucide-react';
+import { CalendarIcon, CheckIcon, XIcon, Clock } from 'lucide-react';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
@@ -20,6 +20,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 interface BookingFormProps {
   deskId: string;
@@ -35,16 +36,20 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
     bookings,
     getDeskById,
     getUserById,
-    users
+    users,
+    canUserBookDesk
   } = useBooking();
   
   const [selectedDate, setSelectedDate] = useState<Date>(date);
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurringDays, setRecurringDays] = useState<string[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>(currentUser?.id || '');
+  const [startTime, setStartTime] = useState<string>("09:00");
+  const [endTime, setEndTime] = useState<string>("10:00");
   
   const desk = getDeskById(deskId);
   const isAdmin = currentUser?.role === 'admin';
+  const isMeetingRoom = desk?.type === 'meeting_room';
   
   // Find if there's a booking for this desk on the selected date
   const existingBooking = bookings.find(
@@ -54,6 +59,16 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
   const bookedBy = existingBooking ? getUserById(existingBooking.userId) : null;
   const isMyBooking = existingBooking && existingBooking.userId === currentUser?.id;
   
+  // Generate time slots for meeting rooms (9 AM to 5 PM)
+  const timeOptions = [];
+  for (let hour = 9; hour <= 17; hour++) {
+    for (let minute = 0; minute < 60; minute += 30) {
+      const hourFormatted = hour.toString().padStart(2, '0');
+      const minuteFormatted = minute.toString().padStart(2, '0');
+      timeOptions.push(`${hourFormatted}:${minuteFormatted}`);
+    }
+  }
+  
   const handleBook = () => {
     if (!currentUser) return;
     
@@ -61,19 +76,51 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
     const bookForUserId = isAdmin && selectedUserId ? selectedUserId : currentUser.id;
     const bookForUser = getUserById(bookForUserId);
     
-    addBooking({
+    // For regular desks, check if user already has a booking
+    if (!isMeetingRoom && !isAdmin) {
+      const canBook = canUserBookDesk(currentUser.id, selectedDate);
+      if (!canBook) {
+        toast.error("You can only book one desk per day");
+        return;
+      }
+    }
+    
+    // Create time slot for meeting rooms
+    let timeSlot: TimeSlot | undefined;
+    if (isMeetingRoom) {
+      if (startTime >= endTime) {
+        toast.error("End time must be after start time");
+        return;
+      }
+      timeSlot = {
+        startTime,
+        endTime
+      };
+    }
+    
+    const success = addBooking({
       deskId,
       userId: bookForUserId,
       date: format(selectedDate, 'yyyy-MM-dd'),
       isRecurring,
       recurringDays: isRecurring ? recurringDays : undefined,
+      timeSlot
     });
     
-    const bookingMessage = isAdmin && bookForUser && bookForUser.id !== currentUser.id 
-      ? `You've successfully booked ${desk?.name} for ${bookForUser.name} on ${format(selectedDate, 'PPPP')}`
-      : `You've successfully booked ${desk?.name} for ${format(selectedDate, 'PPPP')}`;
-    
-    toast.success(bookingMessage);
+    if (success) {
+      const resourceType = isMeetingRoom ? 'meeting room' : 'desk';
+      const bookingMessage = isAdmin && bookForUser && bookForUser.id !== currentUser.id 
+        ? `You've successfully booked ${desk?.name} for ${bookForUser.name} on ${format(selectedDate, 'PPPP')}`
+        : `You've successfully booked ${desk?.name} for ${format(selectedDate, 'PPPP')}`;
+      
+      toast.success(bookingMessage);
+    } else {
+      if (isMeetingRoom) {
+        toast.error(`This time slot is not available. Please select a different time.`);
+      } else {
+        toast.error(`You already have a desk booked for this day.`);
+      }
+    }
   };
   
   const handleCancel = () => {
@@ -107,6 +154,11 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
           {bookedBy && (
             <p className="text-sm mt-2">
               Booked by: {bookedBy.name}
+            </p>
+          )}
+          {existingBooking?.timeSlot && (
+            <p className="text-sm mt-1">
+              Time: {existingBooking.timeSlot.startTime} - {existingBooking.timeSlot.endTime}
             </p>
           )}
           {(isMyBooking || isAdmin) && (
@@ -148,6 +200,49 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
             </Popover>
           </div>
           
+          {isMeetingRoom && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label htmlFor="start-time">Start Time</Label>
+                  <Select 
+                    value={startTime} 
+                    onValueChange={setStartTime}
+                  >
+                    <SelectTrigger id="start-time" className="w-full mt-1">
+                      <SelectValue placeholder="Select start time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timeOptions.slice(0, -1).map(time => (
+                        <SelectItem key={`start-${time}`} value={time}>
+                          {time}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="end-time">End Time</Label>
+                  <Select 
+                    value={endTime} 
+                    onValueChange={setEndTime}
+                  >
+                    <SelectTrigger id="end-time" className="w-full mt-1">
+                      <SelectValue placeholder="Select end time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timeOptions.slice(1).map(time => (
+                        <SelectItem key={`end-${time}`} value={time}>
+                          {time}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {isAdmin && (
             <div>
               <Label htmlFor="book-for-user">Book for User</Label>
@@ -175,16 +270,18 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
             </div>
           )}
           
-          <div className="flex items-center space-x-2">
-            <Checkbox 
-              id="recurring" 
-              checked={isRecurring}
-              onCheckedChange={() => setIsRecurring(!isRecurring)}
-            />
-            <Label htmlFor="recurring">Make this a recurring booking</Label>
-          </div>
+          {!isMeetingRoom && (
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="recurring" 
+                checked={isRecurring}
+                onCheckedChange={() => setIsRecurring(!isRecurring)}
+              />
+              <Label htmlFor="recurring">Make this a recurring booking</Label>
+            </div>
+          )}
           
-          {isRecurring && (
+          {isRecurring && !isMeetingRoom && (
             <div className="ml-6 space-y-2 animate-slideIn">
               <Label>Select days of the week</Label>
               <div className="grid grid-cols-2 gap-2 mt-1">
@@ -204,7 +301,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
           
           <Button onClick={handleBook} className="w-full mt-4">
             <CheckIcon className="mr-2 h-4 w-4" />
-            Book Desk
+            Book {isMeetingRoom ? 'Meeting Room' : 'Desk'}
           </Button>
         </div>
       )}
