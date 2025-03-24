@@ -533,7 +533,7 @@ export const FloorMap: React.FC<FloorMapProps> = ({
           <Dialog open={isResourceDialogOpen} onOpenChange={setIsResourceDialogOpen}>
             <DialogTrigger asChild>
               <Button 
-                className="absolute bottom-4 right-28 z-10"
+                className="absolute bottom-4 right-28 z-10 bg-blue-500 hover:bg-blue-600 text-white"
                 onClick={() => {
                   setNewDesk({
                     name: `Meeting Room ${getNextDeskNumber('Meeting Room')}`,
@@ -549,7 +549,6 @@ export const FloorMap: React.FC<FloorMapProps> = ({
                   setIsResourceDialogOpen(true);
                 }}
                 variant="default"
-                className="bg-blue-500 hover:bg-blue-600 text-white"
               >
                 Add Resource
               </Button>
