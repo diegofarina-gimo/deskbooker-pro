@@ -10,6 +10,7 @@ import Maps from './pages/Maps';
 import Users from './pages/Users';
 import Profile from './pages/Profile';
 import MeetingRooms from './pages/MeetingRooms';
+import MeetingRoomDisplay from './pages/MeetingRoomDisplay';
 import { CustomToaster } from './components/CustomToaster';
 import './App.css';
 
@@ -25,6 +26,7 @@ function App() {
           <Route path="/users" element={<Users />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/meeting-rooms" element={<MeetingRooms />} />
+          <Route path="/meeting-room/:roomId" element={<MeetingRoomDisplay />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>

@@ -6,9 +6,10 @@ import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Clock } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CalendarIcon, ExternalLink } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { MeetingRoomTimetable } from '@/components/MeetingRoomTimetable';
+import { Link } from 'react-router-dom';
 import { 
   Select, 
   SelectContent, 
@@ -115,6 +116,11 @@ const MeetingRooms = () => {
                 <CardContent className="pt-6">
                   <MeetingRoomTimetable room={room} date={selectedDate} />
                 </CardContent>
+                <CardFooter className="bg-gray-50 border-t">
+                  <Link to={`/meeting-room/${room.id}`} className="flex items-center text-blue-600 hover:underline text-sm">
+                    <ExternalLink className="w-4 h-4 mr-1" /> View Room Display
+                  </Link>
+                </CardFooter>
               </Card>
             ))}
           </div>
@@ -131,6 +137,11 @@ const MeetingRooms = () => {
                 <CardContent>
                   <MeetingRoomTimetable room={room} date={selectedDate} compact={true} />
                 </CardContent>
+                <CardFooter className="pt-2 border-t">
+                  <Link to={`/meeting-room/${room.id}`} className="flex items-center text-blue-600 hover:underline text-sm">
+                    <ExternalLink className="w-4 h-4 mr-1" /> View Room Display
+                  </Link>
+                </CardFooter>
               </Card>
             ))}
           </div>
