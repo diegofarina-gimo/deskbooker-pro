@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useBooking } from '@/contexts/BookingContext';
@@ -17,6 +16,7 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { toast } from 'sonner';
+import { Link } from 'react-router-dom';
 
 const MeetingRoomDisplay = () => {
   const { roomId } = useParams<{ roomId: string }>();
@@ -36,7 +36,6 @@ const MeetingRoomDisplay = () => {
   const [currentStatus, setCurrentStatus] = useState<'available' | 'occupied'>('available');
   const [currentBookingId, setCurrentBookingId] = useState<string | null>(null);
   
-  // Find the room
   const room = desks.find(desk => desk.id === roomId);
   
   if (!room || room.type !== 'meeting_room') {
@@ -45,6 +44,11 @@ const MeetingRoomDisplay = () => {
         <div className="text-center">
           <h1 className="text-3xl font-bold mb-2">Room Not Found</h1>
           <p className="text-gray-600">The meeting room you're looking for doesn't exist.</p>
+          <p className="mt-4">
+            <Link to="/meeting-rooms" className="text-blue-600 hover:underline">
+              View All Meeting Rooms
+            </Link>
+          </p>
         </div>
       </div>
     );
@@ -55,7 +59,6 @@ const MeetingRoomDisplay = () => {
   const currentTimeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   const isToday = selectedDate.toDateString() === new Date().toDateString();
   
-  // Get all bookings for this room on the selected date
   const roomBookings = bookings.filter(b => 
     b.deskId === roomId && 
     b.date === dateStr &&
@@ -65,7 +68,6 @@ const MeetingRoomDisplay = () => {
     return a.timeSlot.startTime.localeCompare(b.timeSlot.startTime);
   });
   
-  // Check if room is currently occupied
   useEffect(() => {
     if (isToday && roomBookings.length > 0) {
       const isCurrentlyBooked = roomBookings.some(booking => {
@@ -74,7 +76,6 @@ const MeetingRoomDisplay = () => {
         const startTime = booking.timeSlot.startTime;
         const endTime = booking.timeSlot.endTime;
         
-        // Convert times to minutes for easier comparison
         const [startHour, startMinute] = startTime.split(':').map(Number);
         const [endHour, endMinute] = endTime.split(':').map(Number);
         const [currentHour, currentMinute] = currentTimeString.split(':').map(Number);
@@ -95,7 +96,6 @@ const MeetingRoomDisplay = () => {
       setCurrentStatus('available');
     }
     
-    // Update status every minute
     const intervalId = setInterval(() => {
       const now = new Date();
       const newCurrentTimeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -107,7 +107,6 @@ const MeetingRoomDisplay = () => {
           const startTime = booking.timeSlot.startTime;
           const endTime = booking.timeSlot.endTime;
           
-          // Convert times to minutes for easier comparison
           const [startHour, startMinute] = startTime.split(':').map(Number);
           const [endHour, endMinute] = endTime.split(':').map(Number);
           const [currentHour, currentMinute] = newCurrentTimeString.split(':').map(Number);
@@ -127,12 +126,11 @@ const MeetingRoomDisplay = () => {
       } else {
         setCurrentStatus('available');
       }
-    }, 60000); // Check every minute
+    }, 60000);
     
     return () => clearInterval(intervalId);
   }, [roomBookings, isToday, currentTimeString]);
   
-  // Find the current and upcoming bookings
   const getCurrentBooking = () => {
     if (!isToday) return null;
     
@@ -142,7 +140,6 @@ const MeetingRoomDisplay = () => {
       const startTime = booking.timeSlot.startTime;
       const endTime = booking.timeSlot.endTime;
       
-      // Convert times to minutes for easier comparison
       const [startHour, startMinute] = startTime.split(':').map(Number);
       const [endHour, endMinute] = endTime.split(':').map(Number);
       const [currentHour, currentMinute] = currentTimeString.split(':').map(Number);
@@ -177,7 +174,6 @@ const MeetingRoomDisplay = () => {
   const currentBooking = getCurrentBooking();
   const nextBooking = getNextBooking();
   
-  // Quick book for predefined durations
   const handleQuickBook = (durationMinutes: number) => {
     if (!currentUser) {
       toast.error("You must be logged in to book a room");
@@ -209,7 +205,6 @@ const MeetingRoomDisplay = () => {
     }
   };
   
-  // End current meeting
   const handleEndMeeting = () => {
     if (currentBookingId) {
       cancelBooking(currentBookingId);
@@ -256,7 +251,6 @@ const MeetingRoomDisplay = () => {
           </div>
         </header>
         
-        {/* Current and next bookings */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {currentBooking && (
             <div className="bg-white p-6 rounded-lg shadow-md">
@@ -291,7 +285,6 @@ const MeetingRoomDisplay = () => {
           )}
         </div>
         
-        {/* Timetable */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <h2 className="text-xl font-bold mb-4">Today's Schedule</h2>
           
@@ -345,7 +338,6 @@ const MeetingRoomDisplay = () => {
           )}
         </div>
         
-        {/* Quick booking */}
         {currentStatus === 'available' && (
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-bold mb-4">Quick Book</h2>

@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 // Types
@@ -232,6 +231,42 @@ const sampleDesks: Desk[] = [
     mapId: '1',
     type: 'desk',
   },
+  {
+    id: '6',
+    name: 'Conference Room A',
+    x: 300,
+    y: 300,
+    width: 80,
+    height: 60,
+    status: 'available',
+    mapId: '1',
+    type: 'meeting_room',
+    capacity: 8,
+  },
+  {
+    id: '7',
+    name: 'Meeting Room B',
+    x: 400,
+    y: 300,
+    width: 60,
+    height: 40,
+    status: 'available',
+    mapId: '1',
+    type: 'meeting_room',
+    capacity: 4,
+  },
+  {
+    id: '8',
+    name: 'Boardroom',
+    x: 500,
+    y: 200,
+    width: 100,
+    height: 80,
+    status: 'available',
+    mapId: '2',
+    type: 'meeting_room',
+    capacity: 12,
+  }
 ];
 
 const sampleBookings: Booking[] = [
@@ -425,7 +460,11 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     // If it's a meeting room with a time slot, use the specialized checker
     if (desk.type === 'meeting_room' && timeSlot) {
-      return isMeetingRoomAvailableAtTime(deskId, date, timeSlot);
+      return isMeetingRoomAvailableAtTime(
+        deskId, 
+        new Date(dateStr), 
+        timeSlot
+      );
     }
     
     // For regular desks, check if there are any bookings

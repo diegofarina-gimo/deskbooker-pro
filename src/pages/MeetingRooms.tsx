@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useBooking } from '@/contexts/BookingContext';
 import { AppHeader } from '@/components/AppHeader';
@@ -22,10 +21,8 @@ const MeetingRooms = () => {
   const { currentUser, desks, selectedDate, setSelectedDate, selectedMap, setSelectedMap, maps } = useBooking();
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   
-  // Filter to only get meeting rooms
   const meetingRooms = desks.filter(desk => desk.type === 'meeting_room');
   
-  // Get meeting rooms for the selected map
   const filteredRooms = selectedMap 
     ? meetingRooms.filter(room => room.mapId === selectedMap)
     : meetingRooms;
