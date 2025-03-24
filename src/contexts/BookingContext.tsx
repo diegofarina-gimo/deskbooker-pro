@@ -1,4 +1,7 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 
 // Types
 export type Role = 'admin' | 'user';
@@ -11,7 +14,6 @@ export interface User {
   email: string;
   role: Role;
   avatar?: string;
-  password: string;
   teamId?: string;
   bio?: string;
   phone?: string;
@@ -65,6 +67,8 @@ export interface Booking {
 interface BookingContextType {
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
+  supabaseUser: SupabaseUser | null;
+  isLoading: boolean;
   
   systemLogo: string | null;
   updateSystemLogo: (url: string) => void;
@@ -83,7 +87,7 @@ interface BookingContextType {
   addUser: (user: Omit<User, 'id'>) => void;
   updateUser: (user: User) => void;
   deleteUser: (id: string) => void;
-  changePassword: (userId: string, currentPassword: string, newPassword: string) => boolean;
+  changePassword: (userId: string, currentPassword: string, newPassword: string) => Promise<boolean>;
   
   teams: Team[];
   addTeam: (team: Omit<Team, 'id'>) => void;
@@ -110,273 +114,481 @@ interface BookingContextType {
   getBookingByDeskAndDate: (deskId: string, date: Date) => Booking | undefined;
   getUserBookingsForDate: (userId: string, date: Date) => Booking[];
   canUserBookDesk: (userId: string, date: Date) => boolean;
+  
+  signOut: () => Promise<void>;
 }
-
-const sampleUsers: User[] = [
-  {
-    id: '1',
-    name: 'Admin User',
-    email: 'admin@example.com',
-    role: 'admin',
-    avatar: 'https://i.pravatar.cc/150?img=68',
-    password: 'admin123',
-    bio: 'System administrator',
-    phone: '555-1234',
-  },
-  {
-    id: '2',
-    name: 'John Doe',
-    email: 'john@example.com',
-    role: 'user',
-    avatar: 'https://i.pravatar.cc/150?img=69',
-    password: 'user123',
-    teamId: '1',
-    bio: 'Software developer',
-    phone: '555-5678',
-  }
-];
-
-const sampleTeams: Team[] = [
-  {
-    id: '1',
-    name: 'Engineering',
-    description: 'Software development team',
-    leaderId: '1',
-    color: '#4f46e5',
-  },
-  {
-    id: '2',
-    name: 'Design',
-    description: 'UX/UI Design team',
-    leaderId: '1',
-    color: '#ec4899',
-  },
-  {
-    id: '3',
-    name: 'Marketing',
-    description: 'Marketing and PR team',
-    leaderId: '1',
-    color: '#10b981',
-  }
-];
-
-const sampleMaps: FloorMap[] = [
-  {
-    id: '1',
-    name: 'Main Office',
-    width: 800,
-    height: 600,
-  },
-  {
-    id: '2',
-    name: 'Second Floor',
-    width: 1000,
-    height: 800,
-  }
-];
-
-const sampleDesks: Desk[] = [
-  {
-    id: '1',
-    name: 'Desk A1',
-    x: 100,
-    y: 100,
-    width: 40, // Updated size
-    height: 25, // Updated size
-    status: 'available',
-    mapId: '1',
-    type: 'desk',
-  },
-  {
-    id: '2',
-    name: 'Desk A2',
-    x: 200,
-    y: 100,
-    width: 40, // Updated size
-    height: 25, // Updated size
-    status: 'available',
-    mapId: '1',
-    type: 'desk',
-  },
-  {
-    id: '3',
-    name: 'Desk B1',
-    x: 100,
-    y: 200,
-    width: 40, // Updated size
-    height: 25, // Updated size
-    status: 'maintenance',
-    mapId: '1',
-    type: 'desk',
-  },
-  {
-    id: '4',
-    name: 'Desk B2',
-    x: 200,
-    y: 200,
-    width: 40, // Updated size
-    height: 25, // Updated size
-    status: 'available',
-    mapId: '1',
-    type: 'desk',
-  },
-  {
-    id: '5',
-    name: 'Desk C1',
-    x: 400,
-    y: 100,
-    width: 40, // Updated size
-    height: 25, // Updated size
-    status: 'available',
-    mapId: '1',
-    type: 'desk',
-  },
-  {
-    id: '6',
-    name: 'Conference Room A',
-    x: 300,
-    y: 300,
-    width: 80,
-    height: 60,
-    status: 'available',
-    mapId: '1',
-    type: 'meeting_room',
-    capacity: 8,
-  },
-  {
-    id: '7',
-    name: 'Meeting Room B',
-    x: 400,
-    y: 300,
-    width: 60,
-    height: 40,
-    status: 'available',
-    mapId: '1',
-    type: 'meeting_room',
-    capacity: 4,
-  },
-  {
-    id: '8',
-    name: 'Boardroom',
-    x: 500,
-    y: 200,
-    width: 100,
-    height: 80,
-    status: 'available',
-    mapId: '2',
-    type: 'meeting_room',
-    capacity: 12,
-  }
-];
-
-const sampleBookings: Booking[] = [
-  {
-    id: '1',
-    deskId: '1',
-    userId: '2',
-    date: new Date().toISOString().split('T')[0],
-    isRecurring: false,
-  }
-];
 
 const BookingContext = createContext<BookingContextType | undefined>(undefined);
 
 export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [maps, setMaps] = useState<FloorMap[]>(sampleMaps);
-  const [desks, setDesks] = useState<Desk[]>(sampleDesks);
-  const [users, setUsers] = useState<User[]>(sampleUsers);
-  const [bookings, setBookings] = useState<Booking[]>(sampleBookings);
-  const [teams, setTeams] = useState<Team[]>(sampleTeams.map(team => ({...team, leaderId: undefined})));
+  const [maps, setMaps] = useState<FloorMap[]>([]);
+  const [desks, setDesks] = useState<Desk[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [systemLogo, setSystemLogo] = useState<string | null>(null);
   
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [selectedMap, setSelectedMap] = useState<string | null>(sampleMaps[0]?.id || null);
+  const [selectedMap, setSelectedMap] = useState<string | null>(null);
 
+  // Initialize Supabase auth state
   useEffect(() => {
-    setCurrentUser(sampleUsers[0]);
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setSupabaseUser(session?.user ?? null);
+        
+        if (session?.user) {
+          try {
+            const { data, error } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
+              
+            if (data) {
+              setCurrentUser({
+                id: data.id,
+                name: data.name,
+                email: data.email,
+                role: data.role,
+                avatar: data.avatar,
+                teamId: data.team_id,
+                bio: data.bio,
+                phone: data.phone,
+                isTeamLeader: data.is_team_leader
+              });
+            }
+          } catch (error) {
+            console.error("Error fetching user profile:", error);
+          }
+        } else {
+          setCurrentUser(null);
+        }
+        
+        setIsLoading(false);
+      }
+    );
+
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSupabaseUser(session?.user ?? null);
+      
+      if (session?.user) {
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single()
+          .then(({ data }) => {
+            if (data) {
+              setCurrentUser({
+                id: data.id,
+                name: data.name,
+                email: data.email,
+                role: data.role,
+                avatar: data.avatar,
+                teamId: data.team_id,
+                bio: data.bio,
+                phone: data.phone,
+                isTeamLeader: data.is_team_leader
+              });
+            }
+            setIsLoading(false);
+          })
+          .catch(error => {
+            console.error("Error fetching user profile:", error);
+            setIsLoading(false);
+          });
+      } else {
+        setIsLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  // Load data from Supabase when authenticated
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!currentUser) return;
+      
+      // Fetch maps
+      const { data: mapsData } = await supabase
+        .from('floor_maps')
+        .select('*');
+        
+      if (mapsData && mapsData.length > 0) {
+        setMaps(mapsData.map(map => ({
+          id: map.id,
+          name: map.name,
+          width: map.width,
+          height: map.height,
+          background: map.background
+        })));
+        
+        if (!selectedMap) {
+          setSelectedMap(mapsData[0].id);
+        }
+      }
+      
+      // Fetch resources (desks and meeting rooms)
+      const { data: resourcesData } = await supabase
+        .from('resources')
+        .select('*');
+        
+      if (resourcesData) {
+        setDesks(resourcesData.map(resource => ({
+          id: resource.id,
+          name: resource.name,
+          x: resource.x,
+          y: resource.y,
+          width: resource.width,
+          height: resource.height,
+          status: resource.status,
+          mapId: resource.map_id,
+          type: resource.type,
+          capacity: resource.capacity
+        })));
+      }
+      
+      // Fetch teams
+      const { data: teamsData } = await supabase
+        .from('teams')
+        .select('*');
+        
+      if (teamsData) {
+        setTeams(teamsData.map(team => ({
+          id: team.id,
+          name: team.name,
+          description: team.description,
+          leaderId: team.leader_id,
+          color: team.color
+        })));
+      }
+      
+      // Fetch all users
+      const { data: usersData } = await supabase
+        .from('profiles')
+        .select('*');
+        
+      if (usersData) {
+        setUsers(usersData.map(user => ({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          avatar: user.avatar,
+          teamId: user.team_id,
+          bio: user.bio,
+          phone: user.phone,
+          isTeamLeader: user.is_team_leader
+        })));
+      }
+      
+      // Fetch bookings
+      const { data: bookingsData } = await supabase
+        .from('bookings')
+        .select('*');
+        
+      if (bookingsData) {
+        setBookings(bookingsData.map(booking => ({
+          id: booking.id,
+          deskId: booking.resource_id,
+          userId: booking.user_id,
+          date: booking.date,
+          isRecurring: booking.is_recurring,
+          recurringDays: booking.recurring_days,
+          timeSlot: booking.start_time && booking.end_time ? {
+            startTime: booking.start_time.substring(0, 5),
+            endTime: booking.end_time.substring(0, 5)
+          } : undefined
+        })));
+      }
+    };
+
+    fetchData();
+  }, [currentUser, selectedMap]);
   
   const updateSystemLogo = (url: string) => {
     setSystemLogo(url);
   };
 
-  const addMap = (map: Omit<FloorMap, 'id'>) => {
-    const newMap = { ...map, id: crypto.randomUUID() };
-    setMaps([...maps, newMap]);
+  const addMap = async (map: Omit<FloorMap, 'id'>) => {
+    try {
+      const { data, error } = await supabase
+        .from('floor_maps')
+        .insert({
+          name: map.name,
+          width: map.width,
+          height: map.height,
+          background: map.background
+        })
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      if (data) {
+        const newMap = { 
+          id: data.id, 
+          name: data.name, 
+          width: data.width, 
+          height: data.height,
+          background: data.background 
+        };
+        setMaps([...maps, newMap]);
+      }
+    } catch (error) {
+      console.error("Error adding map:", error);
+    }
   };
 
-  const updateMap = (map: FloorMap) => {
-    setMaps(maps.map(m => m.id === map.id ? map : m));
+  const updateMap = async (map: FloorMap) => {
+    try {
+      const { error } = await supabase
+        .from('floor_maps')
+        .update({
+          name: map.name,
+          width: map.width,
+          height: map.height,
+          background: map.background
+        })
+        .eq('id', map.id);
+        
+      if (error) throw error;
+      setMaps(maps.map(m => m.id === map.id ? map : m));
+    } catch (error) {
+      console.error("Error updating map:", error);
+    }
   };
 
-  const deleteMap = (id: string) => {
-    setMaps(maps.filter(m => m.id !== id));
-    setDesks(desks.filter(d => d.mapId !== id));
+  const deleteMap = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('floor_maps')
+        .delete()
+        .eq('id', id);
+        
+      if (error) throw error;
+      setMaps(maps.filter(m => m.id !== id));
+      setDesks(desks.filter(d => d.mapId !== id));
+    } catch (error) {
+      console.error("Error deleting map:", error);
+    }
   };
 
-  const addDesk = (desk: Omit<Desk, 'id'>) => {
-    const newDesk = { 
-      ...desk, 
-      id: crypto.randomUUID(),
-      type: desk.type || 'desk'
-    };
-    setDesks([...desks, newDesk]);
+  const addDesk = async (desk: Omit<Desk, 'id'>) => {
+    try {
+      const { data, error } = await supabase
+        .from('resources')
+        .insert({
+          name: desk.name,
+          x: desk.x,
+          y: desk.y,
+          width: desk.width,
+          height: desk.height,
+          status: desk.status,
+          map_id: desk.mapId,
+          type: desk.type || 'desk',
+          capacity: desk.capacity
+        })
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      if (data) {
+        const newDesk = { 
+          id: data.id,
+          name: data.name,
+          x: data.x,
+          y: data.y,
+          width: data.width,
+          height: data.height,
+          status: data.status,
+          mapId: data.map_id,
+          type: data.type,
+          capacity: data.capacity
+        };
+        setDesks([...desks, newDesk]);
+      }
+    } catch (error) {
+      console.error("Error adding resource:", error);
+    }
   };
 
-  const updateDesk = (desk: Desk) => {
-    setDesks(desks.map(d => d.id === desk.id ? desk : d));
+  const updateDesk = async (desk: Desk) => {
+    try {
+      const { error } = await supabase
+        .from('resources')
+        .update({
+          name: desk.name,
+          x: desk.x,
+          y: desk.y,
+          width: desk.width,
+          height: desk.height,
+          status: desk.status,
+          map_id: desk.mapId,
+          type: desk.type,
+          capacity: desk.capacity
+        })
+        .eq('id', desk.id);
+        
+      if (error) throw error;
+      setDesks(desks.map(d => d.id === desk.id ? desk : d));
+    } catch (error) {
+      console.error("Error updating resource:", error);
+    }
   };
 
-  const deleteDesk = (id: string) => {
-    setDesks(desks.filter(d => d.id !== id));
-    setBookings(bookings.filter(b => b.deskId !== id));
+  const deleteDesk = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('resources')
+        .delete()
+        .eq('id', id);
+        
+      if (error) throw error;
+      setDesks(desks.filter(d => d.id !== id));
+      setBookings(bookings.filter(b => b.deskId !== id));
+    } catch (error) {
+      console.error("Error deleting resource:", error);
+    }
   };
 
-  const addUser = (user: Omit<User, 'id'>) => {
-    const newUser = { ...user, id: crypto.randomUUID() };
-    setUsers([...users, newUser]);
+  const addUser = async (user: Omit<User, 'id'>) => {
+    // For Supabase, users are created through auth, not directly
+    // This method would only be used for testing purposes
+    console.warn("Users should be created through Supabase auth, not directly");
   };
 
-  const updateUser = (user: User) => {
-    setUsers(users.map(u => u.id === user.id ? user : u));
+  const updateUser = async (user: User) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          avatar: user.avatar,
+          team_id: user.teamId,
+          bio: user.bio,
+          phone: user.phone,
+          is_team_leader: user.isTeamLeader
+        })
+        .eq('id', user.id);
+        
+      if (error) throw error;
+      setUsers(users.map(u => u.id === user.id ? user : u));
+      
+      // Update currentUser if it's the logged-in user
+      if (currentUser?.id === user.id) {
+        setCurrentUser(user);
+      }
+    } catch (error) {
+      console.error("Error updating user:", error);
+    }
   };
 
-  const deleteUser = (id: string) => {
-    setUsers(users.filter(u => u.id !== id));
-    setBookings(bookings.filter(b => b.userId !== id));
+  const deleteUser = async (id: string) => {
+    // Deleting a user involves multiple steps and should typically
+    // be done via admin functions, not in the client
+    console.warn("User deletion should be handled by an admin function");
   };
 
-  const changePassword = (userId: string, currentPassword: string, newPassword: string): boolean => {
-    const userIndex = users.findIndex(u => u.id === userId);
-    if (userIndex === -1) return false;
-    
-    if (users[userIndex].password !== currentPassword) return false;
-    
-    const updatedUsers = [...users];
-    updatedUsers[userIndex] = {
-      ...updatedUsers[userIndex],
-      password: newPassword
-    };
-    
-    setUsers(updatedUsers);
-    return true;
+  const changePassword = async (userId: string, currentPassword: string, newPassword: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+      
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error("Error changing password:", error);
+      return false;
+    }
   };
 
-  const addTeam = (team: Omit<Team, 'id'>) => {
-    const newTeam = { ...team, id: crypto.randomUUID() };
-    setTeams([...teams, newTeam]);
+  const addTeam = async (team: Omit<Team, 'id'>) => {
+    try {
+      const { data, error } = await supabase
+        .from('teams')
+        .insert({
+          name: team.name,
+          description: team.description,
+          leader_id: team.leaderId,
+          color: team.color
+        })
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      if (data) {
+        const newTeam = { 
+          id: data.id,
+          name: data.name,
+          description: data.description,
+          leaderId: data.leader_id,
+          color: data.color
+        };
+        setTeams([...teams, newTeam]);
+      }
+    } catch (error) {
+      console.error("Error adding team:", error);
+    }
   };
 
-  const updateTeam = (team: Team) => {
-    setTeams(teams.map(t => t.id === team.id ? team : t));
+  const updateTeam = async (team: Team) => {
+    try {
+      const { error } = await supabase
+        .from('teams')
+        .update({
+          name: team.name,
+          description: team.description,
+          leader_id: team.leaderId,
+          color: team.color
+        })
+        .eq('id', team.id);
+        
+      if (error) throw error;
+      setTeams(teams.map(t => t.id === team.id ? team : t));
+    } catch (error) {
+      console.error("Error updating team:", error);
+    }
   };
 
-  const deleteTeam = (id: string) => {
-    setTeams(teams.filter(t => t.id !== id));
-    setUsers(users.map(user => 
-      user.teamId === id ? { ...user, teamId: undefined, isTeamLeader: false } : user
-    ));
+  const deleteTeam = async (id: string) => {
+    try {
+      // First update any users that belong to this team
+      await supabase
+        .from('profiles')
+        .update({
+          team_id: null,
+          is_team_leader: false
+        })
+        .eq('team_id', id);
+      
+      // Then delete the team
+      const { error } = await supabase
+        .from('teams')
+        .delete()
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      setTeams(teams.filter(t => t.id !== id));
+      setUsers(users.map(user => 
+        user.teamId === id ? { ...user, teamId: undefined, isTeamLeader: false } : user
+      ));
+    } catch (error) {
+      console.error("Error deleting team:", error);
+    }
   };
 
   const getUsersByTeamId = (teamId: string): User[] => {
@@ -397,7 +609,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     );
   };
 
-  const addBooking = (booking: Omit<Booking, 'id'>): boolean => {
+  const addBooking = async (booking: Omit<Booking, 'id'>): Promise<boolean> => {
     const desk = getDeskById(booking.deskId);
     
     if (!desk) return false;
@@ -418,13 +630,58 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (!isAvailable) return false;
     }
     
-    const newBooking = { ...booking, id: crypto.randomUUID() };
-    setBookings([...bookings, newBooking]);
-    return true;
+    try {
+      const { data, error } = await supabase
+        .from('bookings')
+        .insert({
+          resource_id: booking.deskId,
+          user_id: booking.userId,
+          date: booking.date,
+          is_recurring: booking.isRecurring,
+          recurring_days: booking.recurringDays,
+          start_time: booking.timeSlot?.startTime,
+          end_time: booking.timeSlot?.endTime
+        })
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      if (data) {
+        const newBooking = {
+          id: data.id,
+          deskId: data.resource_id,
+          userId: data.user_id,
+          date: data.date,
+          isRecurring: data.is_recurring,
+          recurringDays: data.recurring_days,
+          timeSlot: data.start_time && data.end_time ? {
+            startTime: data.start_time.substring(0, 5),
+            endTime: data.end_time.substring(0, 5)
+          } : undefined
+        };
+        setBookings([...bookings, newBooking]);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Error adding booking:", error);
+      return false;
+    }
   };
 
-  const cancelBooking = (id: string) => {
-    setBookings(bookings.filter(b => b.id !== id));
+  const cancelBooking = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .delete()
+        .eq('id', id);
+        
+      if (error) throw error;
+      setBookings(bookings.filter(b => b.id !== id));
+    } catch (error) {
+      console.error("Error canceling booking:", error);
+    }
   };
 
   const formatDateString = (date: Date): string => {
@@ -546,11 +803,18 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return users.find(u => u.id === id);
   };
 
+  const signOut = async (): Promise<void> => {
+    await supabase.auth.signOut();
+    setCurrentUser(null);
+  };
+
   return (
     <BookingContext.Provider
       value={{
         currentUser,
         setCurrentUser,
+        supabaseUser,
+        isLoading,
         systemLogo,
         updateSystemLogo,
         maps,
@@ -587,7 +851,8 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         getTeamById,
         getBookingByDeskAndDate,
         getUserBookingsForDate,
-        canUserBookDesk
+        canUserBookDesk,
+        signOut
       }}
     >
       {children}

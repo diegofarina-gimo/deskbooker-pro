@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useBooking } from '@/contexts/BookingContext';
 import { Button } from "@/components/ui/button";
@@ -15,55 +16,106 @@ import { toast } from "sonner";
 import { useNavigate } from 'react-router-dom';
 import { EyeIcon, EyeOffIcon } from 'lucide-react';
 import { Separator } from "@/components/ui/separator";
+import { supabase } from '@/integrations/supabase/client';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { users, setCurrentUser } = useBooking();
+  const { currentUser, isLoading: contextLoading } = useBooking();
   const navigate = useNavigate();
   
-  const handleLogin = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (currentUser && !contextLoading) {
+      navigate('/dashboard');
+    }
+  }, [currentUser, contextLoading, navigate]);
+  
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    setTimeout(() => {
-      const user = users.find(u => 
-        u.email.toLowerCase() === email.toLowerCase() && 
-        u.password === password
-      );
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
       
-      if (user) {
-        setCurrentUser(user);
-        navigate('/dashboard');
-        toast.success(`Welcome back, ${user.name}!`);
+      if (error) {
+        toast.error(error.message);
       } else {
-        toast.error('Invalid email or password. Please try again.');
+        toast.success("Login successful");
+        navigate('/dashboard');
       }
+    } catch (error) {
+      console.error("Login error:", error);
+      toast.error("An unexpected error occurred");
+    } finally {
       setIsLoading(false);
-    }, 800);
+    }
   };
   
-  const handleGoogleLogin = () => {
+  const handleGoogleLogin = async () => {
     setIsLoading(true);
     
-    // Simulate SSO authentication
-    setTimeout(() => {
-      // For demo, sign in as admin
-      const adminUser = users.find(u => u.email === 'admin@example.com');
-      if (adminUser) {
-        setCurrentUser(adminUser);
-        navigate('/dashboard');
-        toast.success(`Welcome back, ${adminUser.name}!`);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`
+        }
+      });
+      
+      if (error) {
+        toast.error(error.message);
+        setIsLoading(false);
       }
+      // No need to setIsLoading(false) on success as the page will redirect
+    } catch (error) {
+      console.error("Google login error:", error);
+      toast.error("An unexpected error occurred");
       setIsLoading(false);
-    }, 1500);
+    }
+  };
+  
+  const handleSignup = async () => {
+    setIsLoading(true);
+    
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`
+        }
+      });
+      
+      if (error) {
+        toast.error(error.message);
+        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error("Signup error:", error);
+      toast.error("An unexpected error occurred");
+      setIsLoading(false);
+    }
   };
   
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
+
+  // If still checking auth status, show loading
+  if (contextLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
@@ -153,27 +205,25 @@ const Login = () => {
                 </div>
               </div>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="flex flex-col space-y-4">
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Signing in..." : "Sign In with Email"}
               </Button>
+              
+              <p className="text-sm text-center text-gray-500">
+                Don't have an account?{" "}
+                <Button 
+                  variant="link" 
+                  className="p-0 h-auto text-blue-600" 
+                  onClick={handleSignup}
+                  disabled={isLoading}
+                >
+                  Sign up with Google
+                </Button>
+              </p>
             </CardFooter>
           </form>
         </Card>
-        
-        <div className="text-center text-sm">
-          <p className="text-gray-500">
-            For demo purposes, use:
-          </p>
-          <div className="flex flex-col items-center mt-2 space-y-1">
-            <div className="text-xs text-gray-500">
-              admin@example.com / admin123 (Admin)
-            </div>
-            <div className="text-xs text-gray-500">
-              john@example.com / user123 (User)
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
