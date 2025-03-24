@@ -522,7 +522,7 @@ export const FloorMap: React.FC<FloorMapProps> = ({
                 </Button>
               </DialogFooter>
             </DialogContent>
-          </DialogTrigger>
+          </Dialog>
           
           <Dialog open={isResourceDialogOpen} onOpenChange={setIsResourceDialogOpen}>
             <DialogTrigger asChild>
@@ -622,27 +622,29 @@ export const FloorMap: React.FC<FloorMapProps> = ({
             </DialogContent>
           </Dialog>
           
-          <DialogTrigger asChild>
-            <Button 
-              className="absolute bottom-4 right-4 z-10"
-              onClick={() => {
-                setEditingDesk(null);
-                setNewDesk({
-                  name: `Desk ${getNextDeskNumber()}`,
-                  x: Math.floor(currentMap.width / 2 - 40),
-                  y: Math.floor(currentMap.height / 2 - 25),
-                  width: 80,
-                  height: 50,
-                  status: 'available',
-                  mapId: mapId,
-                  type: 'desk'
-                });
-                setIsDialogOpen(true);
-              }}
-            >
-              Add Desk
-            </Button>
-          </DialogTrigger>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button 
+                className="absolute bottom-4 right-4 z-10"
+                onClick={() => {
+                  setEditingDesk(null);
+                  setNewDesk({
+                    name: `Desk ${getNextDeskNumber()}`,
+                    x: Math.floor(currentMap.width / 2 - 40),
+                    y: Math.floor(currentMap.height / 2 - 25),
+                    width: 80,
+                    height: 50,
+                    status: 'available',
+                    mapId: mapId,
+                    type: 'desk'
+                  });
+                  setIsDialogOpen(true);
+                }}
+              >
+                Add Desk
+              </Button>
+            </DialogTrigger>
+          </Dialog>
           
           <Dialog open={isGenerateDialogOpen} onOpenChange={setIsGenerateDialogOpen}>
             <DialogTrigger asChild>
