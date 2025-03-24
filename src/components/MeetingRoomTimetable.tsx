@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { BookingForm } from './BookingForm';
 import { cn } from '@/lib/utils';
+import { CalendarClock, CheckCircle, XCircle, Clock } from 'lucide-react';
 
 interface TimeSlotInfo {
   startTime: string;
@@ -139,16 +140,21 @@ export const MeetingRoomTimetable: React.FC<MeetingRoomTimetableProps> = ({
               <div 
                 key={index}
                 className={cn(
-                  "aspect-square rounded-sm flex items-center justify-center text-xs font-medium",
+                  "aspect-square rounded-md flex items-center justify-center text-xs font-medium shadow-sm",
                   slot.isBooked 
                     ? "bg-red-100 text-red-800" 
-                    : "bg-green-100 text-green-800",
+                    : "bg-green-100 text-green-800 hover:bg-green-200 cursor-pointer",
                   isPast && "opacity-60",
                   now && "ring-2 ring-blue-400"
                 )}
                 title={`${slot.startTime} - ${slot.endTime}${slot.userName ? ` | Booked by: ${slot.userName}` : ''}`}
+                onClick={() => !slot.isBooked && !isPast && handleBookClick({
+                  startTime: slot.startTime,
+                  endTime: slot.endTime
+                })}
               >
                 {slot.startTime.split(':')[0]}
+                {slot.isBooked && <XCircle className="h-3 w-3 ml-1" />}
               </div>
             );
           })}
@@ -175,7 +181,7 @@ export const MeetingRoomTimetable: React.FC<MeetingRoomTimetableProps> = ({
   
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 divide-y">
+      <div className="grid grid-cols-1 gap-2">
         {timeSlots.map((slot, index) => {
           const isPast = isToday && slot.endTime < currentTimeString;
           const now = isToday && currentTimeString >= slot.startTime && currentTimeString <= slot.endTime;
@@ -184,69 +190,80 @@ export const MeetingRoomTimetable: React.FC<MeetingRoomTimetableProps> = ({
             <div 
               key={index} 
               className={cn(
-                "py-2 px-3 flex justify-between items-center",
+                "p-3 rounded-lg flex justify-between items-center shadow-sm border transition-all duration-200",
                 slot.isBooked 
-                  ? "bg-red-50" 
-                  : "bg-green-50",
-                isPast && "opacity-70",
-                now && "ring-2 ring-inset ring-blue-400"
+                  ? "bg-red-50 border-red-100" 
+                  : "bg-gradient-to-r from-green-50 to-green-100 border-green-100 hover:shadow-md hover:-translate-y-0.5",
+                isPast && "opacity-60",
+                now && "ring-2 ring-blue-400"
               )}
             >
-              <div className="flex items-center gap-2">
-                <div 
-                  className={cn(
-                    "w-3 h-3 rounded-full",
-                    slot.isBooked ? "bg-red-500" : "bg-green-500"
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-sm">
+                  <CalendarClock 
+                    className={cn(
+                      "w-5 h-5",
+                      slot.isBooked ? "text-red-500" : "text-green-500"
+                    )} 
+                  />
+                </div>
+                <div>
+                  <span className="font-medium text-gray-800 flex items-center gap-2">
+                    {slot.startTime} - {slot.endTime}
+                    {now && (
+                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full flex items-center">
+                        <Clock className="h-3 w-3 mr-1" />Current
+                      </span>
+                    )}
+                  </span>
+                  {slot.userName && (
+                    <span className="text-sm text-gray-500 flex items-center mt-0.5">
+                      Booked by: {slot.userName}
+                    </span>
                   )}
-                />
-                <span className="font-medium">
-                  {slot.startTime} - {slot.endTime}
-                </span>
-                {slot.userName && (
-                  <span className="text-sm text-gray-600 ml-2">
-                    Booked by: {slot.userName}
-                  </span>
-                )}
-                {now && (
-                  <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
-                    Current
-                  </span>
-                )}
+                </div>
               </div>
               
               {!slot.isBooked && !isPast && (
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button 
-                      size="sm" 
-                      onClick={() => handleBookClick({
-                        startTime: slot.startTime,
-                        endTime: slot.endTime
-                      })}
-                    >
-                      Book
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent onClick={(e) => e.stopPropagation()}>
-                    <DialogHeader>
-                      <DialogTitle>Book {room.name}</DialogTitle>
-                    </DialogHeader>
-                    <BookingForm 
-                      deskId={room.id} 
-                      date={date} 
-                      status="available"
-                      preselectedTimeSlot={{
-                        startTime: slot.startTime,
-                        endTime: slot.endTime
-                      }}
-                    />
-                  </DialogContent>
-                </Dialog>
+                <Button 
+                  size="sm" 
+                  onClick={() => handleBookClick({
+                    startTime: slot.startTime,
+                    endTime: slot.endTime
+                  })}
+                  className="gap-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-sm"
+                >
+                  <CheckCircle className="h-3.5 w-3.5" />
+                  Book
+                </Button>
+              )}
+              
+              {slot.isBooked && (
+                <div className="px-3 py-1 bg-red-100 text-red-800 text-sm font-medium rounded-full flex items-center">
+                  <XCircle className="h-3.5 w-3.5 mr-1" />
+                  Booked
+                </div>
               )}
             </div>
           );
         })}
       </div>
+      
+      <Dialog open={bookingDialogOpen} onOpenChange={setBookingDialogOpen}>
+        <DialogContent onClick={(e) => e.stopPropagation()}>
+          <DialogHeader>
+            <DialogTitle>Book {room.name}</DialogTitle>
+          </DialogHeader>
+          {selectedTimeSlot && (
+            <BookingForm 
+              deskId={room.id} 
+              date={date} 
+              status="available"
+              preselectedTimeSlot={selectedTimeSlot}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

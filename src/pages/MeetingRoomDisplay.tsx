@@ -2,22 +2,16 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useBooking } from '@/contexts/BookingContext';
-import { format, addMinutes } from 'date-fns';
+import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, Clock, CalendarClock, Bookmark, CalendarCheck } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { BookingForm } from '@/components/BookingForm';
 import { toast } from 'sonner';
-import { 
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell
-} from "@/components/ui/table";
+import { MeetingRoomTimetable } from '@/components/MeetingRoomTimetable';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 const MeetingRoomDisplay = () => {
   const { roomId } = useParams<{ roomId: string }>();
@@ -28,31 +22,27 @@ const MeetingRoomDisplay = () => {
     currentUser, 
     selectedDate, 
     setSelectedDate,
-    cancelBooking,
-    addBooking
+    cancelBooking
   } = useBooking();
   
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<'available' | 'occupied'>('available');
   const [currentBookingId, setCurrentBookingId] = useState<string | null>(null);
   
-  console.log("Available desks:", desks);
-  console.log("Looking for room ID:", roomId);
-  console.log("Meeting rooms:", desks.filter(d => d.type === 'meeting_room'));
-  
   const room = desks.find(desk => desk.id === roomId);
   
   if (!room) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
+        <div className="text-center max-w-md p-8 rounded-xl shadow-lg bg-white border border-gray-100">
           <h1 className="text-3xl font-bold mb-2">Room Not Found</h1>
-          <p className="text-gray-600">The meeting room you're looking for doesn't exist.</p>
-          <p className="mt-4">
-            <Link to="/meeting-rooms" className="text-blue-600 hover:underline">
+          <p className="text-gray-600 mb-6">The meeting room you're looking for doesn't exist.</p>
+          <Link to="/meeting-rooms">
+            <Button className="gap-2">
+              <CalendarClock className="h-4 w-4" />
               View All Meeting Rooms
-            </Link>
-          </p>
+            </Button>
+          </Link>
         </div>
       </div>
     );
@@ -61,14 +51,15 @@ const MeetingRoomDisplay = () => {
   if (room.type !== 'meeting_room') {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
+        <div className="text-center max-w-md p-8 rounded-xl shadow-lg bg-white border border-gray-100">
           <h1 className="text-3xl font-bold mb-2">Invalid Resource</h1>
-          <p className="text-gray-600">This resource is not a meeting room.</p>
-          <p className="mt-4">
-            <Link to="/meeting-rooms" className="text-blue-600 hover:underline">
+          <p className="text-gray-600 mb-6">This resource is not a meeting room.</p>
+          <Link to="/meeting-rooms">
+            <Button className="gap-2">
+              <CalendarClock className="h-4 w-4" />
               View All Meeting Rooms
-            </Link>
-          </p>
+            </Button>
+          </Link>
         </div>
       </div>
     );
@@ -78,6 +69,7 @@ const MeetingRoomDisplay = () => {
   const now = new Date();
   const currentTimeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   const isToday = selectedDate.toDateString() === new Date().toDateString();
+  const isFutureDate = selectedDate > now && !isToday;
   
   const roomBookings = bookings.filter(b => 
     b.deskId === roomId && 
@@ -194,37 +186,6 @@ const MeetingRoomDisplay = () => {
   const currentBooking = getCurrentBooking();
   const nextBooking = getNextBooking();
   
-  const handleQuickBook = (durationMinutes: number) => {
-    if (!currentUser) {
-      toast.error("You must be logged in to book a room");
-      return;
-    }
-    
-    const now = new Date();
-    const startHour = now.getHours();
-    const startMinute = now.getMinutes();
-    const startTime = `${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}`;
-    
-    const endTime = format(addMinutes(now, durationMinutes), 'HH:mm');
-    
-    const success = addBooking({
-      deskId: roomId,
-      userId: currentUser.id,
-      date: format(now, 'yyyy-MM-dd'),
-      isRecurring: false,
-      timeSlot: {
-        startTime,
-        endTime
-      }
-    });
-    
-    if (success) {
-      toast.success(`Room booked for ${durationMinutes} minutes`);
-    } else {
-      toast.error("Unable to book room for this time");
-    }
-  };
-  
   const handleEndMeeting = () => {
     if (currentBookingId) {
       cancelBooking(currentBookingId);
@@ -242,172 +203,221 @@ const MeetingRoomDisplay = () => {
       }`}></div>
       
       {/* Main content */}
-      <div className="flex-1">
-        <div className="container mx-auto px-4 py-10">
-          <header className="mb-8 text-center">
-            <h1 className="text-4xl font-bold mb-2">{room.name}</h1>
-            <div className="text-lg text-gray-600 mb-4">
-              Capacity: {room.capacity || 'Unknown'} {room.capacity === 1 ? 'person' : 'people'}
-            </div>
-            
-            <div className="flex justify-center mb-4">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="gap-2">
-                    <CalendarIcon className="h-4 w-4" />
-                    {format(selectedDate, 'PPP')}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="center">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={(date) => date && setSelectedDate(date)}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            
-            <div className={`inline-flex items-center px-4 py-2 rounded-full text-white font-medium ${
-              currentStatus === 'available' ? 'bg-green-500' : 'bg-red-500'
-            }`}>
-              {currentStatus === 'available' ? 'Available' : 'Occupied'}
+      <div className="flex-1 bg-gray-50">
+        <div className="container mx-auto px-4 py-8">
+          <header className="mb-8">
+            <div className="max-w-4xl mx-auto">
+              <div className="flex justify-between items-start">
+                <div>
+                  <Link to="/meeting-rooms" className="text-sm text-blue-600 hover:underline flex items-center gap-1 mb-3">
+                    <CalendarClock className="h-3 w-3" />
+                    Back to Meeting Rooms
+                  </Link>
+                  <h1 className="text-3xl md:text-4xl font-bold mb-2 text-gray-900">{room.name}</h1>
+                  <div className="text-gray-600 mb-4 flex items-center gap-2">
+                    <span className="inline-flex items-center bg-gray-100 px-3 py-1 rounded-full text-sm">
+                      Capacity: {room.capacity || 'Unknown'} {room.capacity === 1 ? 'person' : 'people'}
+                    </span>
+                    <div className={`inline-flex items-center px-3 py-1 rounded-full text-white font-medium text-sm ${
+                      currentStatus === 'available' ? 'bg-green-500' : 'bg-red-500'
+                    }`}>
+                      {currentStatus === 'available' ? 'Available' : 'Occupied'}
+                    </div>
+                  </div>
+                </div>
+                
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="gap-2 mt-2 bg-white shadow-sm">
+                      <CalendarIcon className="h-4 w-4" />
+                      {format(selectedDate, 'PPP')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(date) => date && setSelectedDate(date)}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
           </header>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            {currentBooking && (
-              <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-500">
-                <h2 className="text-xl font-bold mb-2">Current Meeting</h2>
-                <div className="mb-1">
-                  Booked by: {getUserById(currentBooking.userId)?.name || 'Unknown'}
-                </div>
-                <div className="mb-4">
-                  Time: {currentBooking.timeSlot?.startTime} - {currentBooking.timeSlot?.endTime}
-                </div>
-                {(currentUser?.id === currentBooking.userId || currentUser?.role === 'admin') && (
-                  <Button 
-                    variant="destructive" 
-                    onClick={handleEndMeeting}
-                  >
-                    End Meeting
-                  </Button>
+          <div className="grid gap-6 max-w-4xl mx-auto">
+            {(currentBooking || nextBooking) && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-2">
+                {currentBooking && (
+                  <Card className="border-l-4 border-l-red-500 shadow-md overflow-hidden">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2">
+                        <Clock className="h-5 w-5 text-red-500" />
+                        Current Meeting
+                      </CardTitle>
+                      <CardDescription>In progress now</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="mb-1 font-medium">
+                        Booked by: {getUserById(currentBooking.userId)?.name || 'Unknown'}
+                      </div>
+                      <div className="mb-4 text-sm text-gray-600">
+                        Time: {currentBooking.timeSlot?.startTime} - {currentBooking.timeSlot?.endTime}
+                      </div>
+                      {(currentUser?.id === currentBooking.userId || currentUser?.role === 'admin') && (
+                        <Button 
+                          variant="destructive" 
+                          onClick={handleEndMeeting}
+                          className="gap-2 w-full"
+                        >
+                          End Meeting
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {nextBooking && (
+                  <Card className="border-l-4 border-l-blue-500 shadow-md overflow-hidden">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2">
+                        <CalendarCheck className="h-5 w-5 text-blue-500" />
+                        Next Meeting
+                      </CardTitle>
+                      <CardDescription>Coming up today</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="mb-1 font-medium">
+                        Booked by: {getUserById(nextBooking.userId)?.name || 'Unknown'}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        Time: {nextBooking.timeSlot?.startTime} - {nextBooking.timeSlot?.endTime}
+                      </div>
+                    </CardContent>
+                  </Card>
                 )}
               </div>
             )}
             
-            {nextBooking && (
-              <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500">
-                <h2 className="text-xl font-bold mb-2">Next Meeting</h2>
-                <div className="mb-1">
-                  Booked by: {getUserById(nextBooking.userId)?.name || 'Unknown'}
-                </div>
-                <div>
-                  Time: {nextBooking.timeSlot?.startTime} - {nextBooking.timeSlot?.endTime}
-                </div>
-              </div>
-            )}
-          </div>
-          
-          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-            <h2 className="text-xl font-bold mb-4">Schedule</h2>
+            <Card className="shadow-md overflow-hidden">
+              <CardHeader className="pb-3 border-b">
+                <CardTitle className="flex items-center gap-2">
+                  <CalendarClock className="h-5 w-5" />
+                  {isToday ? "Today's Schedule" : format(selectedDate, 'PPPP')}
+                </CardTitle>
+                <CardDescription>
+                  {isToday ? "View and book time slots for today" : 
+                   isFutureDate ? "Plan ahead and reserve time slots" : 
+                   "View past bookings"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <MeetingRoomTimetable room={room} date={selectedDate} />
+              </CardContent>
+            </Card>
             
-            {roomBookings.length === 0 ? (
-              <div className="text-center py-6 bg-gray-50 rounded-md">
-                <p className="text-gray-700">No bookings for today</p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Booked By</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {roomBookings.map((booking, index) => {
-                    const user = getUserById(booking.userId);
-                    const isPast = isToday && booking.timeSlot && booking.timeSlot.endTime < currentTimeString;
-                    const isCurrent = isToday && booking.timeSlot && 
-                      currentTimeString >= booking.timeSlot.startTime && 
-                      currentTimeString <= booking.timeSlot.endTime;
-                    
-                    return (
-                      <TableRow 
-                        key={index} 
-                        className={`
-                          ${isPast ? 'text-gray-500' : ''}
-                          ${isCurrent ? 'bg-red-50' : ''}
-                        `}
-                      >
-                        <TableCell className="font-medium">
-                          {booking.timeSlot?.startTime} - {booking.timeSlot?.endTime}
-                        </TableCell>
-                        <TableCell>
-                          {user?.name || 'Unknown user'}
-                        </TableCell>
-                        <TableCell>
-                          {isPast ? (
-                            <span className="text-gray-500">Completed</span>
-                          ) : isCurrent ? (
-                            <span className="text-red-500 font-medium">In Progress</span>
-                          ) : (
-                            <span className="text-blue-500">Scheduled</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {isCurrent && (currentUser?.id === booking.userId || currentUser?.role === 'admin') && (
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => handleEndMeeting()}
-                              className="text-red-500 border-red-200 hover:bg-red-50"
-                            >
-                              End
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+            {isToday && currentStatus === 'available' && (
+              <Card className="shadow-md overflow-hidden bg-gradient-to-br from-white to-gray-50">
+                <CardHeader className="pb-3 border-b">
+                  <CardTitle className="flex items-center gap-2">
+                    <Bookmark className="h-5 w-5 text-green-500" />
+                    Quick Book
+                  </CardTitle>
+                  <CardDescription>
+                    Need the room right now? Book it quickly!
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    <Button 
+                      onClick={() => {
+                        const now = new Date();
+                        const startTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                        const endTime = format(new Date(now.getTime() + 15 * 60000), 'HH:mm');
+                        
+                        handleBookClick({
+                          startTime,
+                          endTime
+                        });
+                      }}
+                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                    >
+                      15 min
+                    </Button>
+                    <Button 
+                      onClick={() => {
+                        const now = new Date();
+                        const startTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                        const endTime = format(new Date(now.getTime() + 30 * 60000), 'HH:mm');
+                        
+                        handleBookClick({
+                          startTime,
+                          endTime
+                        });
+                      }}
+                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                    >
+                      30 min
+                    </Button>
+                    <Button 
+                      onClick={() => {
+                        const now = new Date();
+                        const startTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                        const endTime = format(new Date(now.getTime() + 60 * 60000), 'HH:mm');
+                        
+                        handleBookClick({
+                          startTime,
+                          endTime
+                        });
+                      }}
+                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                    >
+                      1 hour
+                    </Button>
+                    <Button 
+                      onClick={() => {
+                        const now = new Date();
+                        const startTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                        const endTime = format(new Date(now.getTime() + 120 * 60000), 'HH:mm');
+                        
+                        handleBookClick({
+                          startTime,
+                          endTime
+                        });
+                      }}
+                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                    >
+                      2 hours
+                    </Button>
+                  </div>
+                  
+                  <div className="mt-4">
+                    <Dialog open={isBookingDialogOpen} onOpenChange={setIsBookingDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          className="w-full bg-white"
+                        >
+                          Custom Booking
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Book {room.name}</DialogTitle>
+                        </DialogHeader>
+                        <BookingForm 
+                          deskId={room.id} 
+                          date={selectedDate} 
+                          status="available"
+                        />
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </CardContent>
+              </Card>
             )}
           </div>
-          
-          {currentStatus === 'available' && (
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-bold mb-4">Quick Book</h2>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                <Button onClick={() => handleQuickBook(15)}>15 min</Button>
-                <Button onClick={() => handleQuickBook(30)}>30 min</Button>
-                <Button onClick={() => handleQuickBook(60)}>1 hour</Button>
-                <Button onClick={() => handleQuickBook(120)}>2 hours</Button>
-              </div>
-              
-              <div className="mt-4">
-                <Dialog open={isBookingDialogOpen} onOpenChange={setIsBookingDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" className="w-full">Custom Booking</Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Book {room.name}</DialogTitle>
-                    </DialogHeader>
-                    <BookingForm 
-                      deskId={room.id} 
-                      date={selectedDate} 
-                      status="available"
-                    />
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </div>
-          )}
         </div>
       </div>
       
@@ -417,6 +427,19 @@ const MeetingRoomDisplay = () => {
       }`}></div>
     </div>
   );
+  
+  function handleBookClick(timeSlot: { startTime: string; endTime: string }) {
+    if (!currentUser) {
+      toast.error("You must be logged in to book a room");
+      return;
+    }
+    
+    const success = true; // We'll actually handle the booking in the BookingForm component
+    
+    if (success) {
+      setIsBookingDialogOpen(true);
+    }
+  }
 };
 
 export default MeetingRoomDisplay;
