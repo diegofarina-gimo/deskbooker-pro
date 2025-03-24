@@ -1,10 +1,12 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBooking } from '@/contexts/BookingContext';
 import { AppHeader } from '@/components/AppHeader';
 import { BookingOverview } from '@/components/BookingOverview';
 import { FloorMap } from '@/components/FloorMap';
+import { TeamBookingsView } from '@/components/TeamBookingsView';
+import { BookingStats } from '@/components/BookingStats';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -37,6 +39,14 @@ const Dashboard = () => {
             <TabsTrigger value="map" className="flex-1">
               {isMobile ? "Map" : "Office Map"}
             </TabsTrigger>
+            <TabsTrigger value="team" className="flex-1">
+              {isMobile ? "Team" : "Team View"}
+            </TabsTrigger>
+            {currentUser.role === 'admin' && (
+              <TabsTrigger value="stats" className="flex-1">
+                {isMobile ? "Stats" : "Statistics"}
+              </TabsTrigger>
+            )}
           </TabsList>
           
           <TabsContent value="overview" className="animate-slideIn">
@@ -50,7 +60,7 @@ const Dashboard = () => {
                   <h2 className="text-xl font-semibold mb-4">
                     {maps.find(m => m.id === selectedMap)?.name || 'Office Map'}
                   </h2>
-                  <FloorMap mapId={selectedMap} date={new Date()} />
+                  <FloorMap mapId={selectedMap} date={new Date()} showBookingDetails={true} />
                 </div>
               ) : (
                 <div className="text-center py-10">
@@ -59,6 +69,20 @@ const Dashboard = () => {
               )}
             </div>
           </TabsContent>
+          
+          <TabsContent value="team" className="animate-slideIn">
+            <div className="p-4 md:p-6 space-y-6">
+              <TeamBookingsView />
+            </div>
+          </TabsContent>
+          
+          {currentUser.role === 'admin' && (
+            <TabsContent value="stats" className="animate-slideIn">
+              <div className="p-4 md:p-6 space-y-6">
+                <BookingStats />
+              </div>
+            </TabsContent>
+          )}
         </Tabs>
       </main>
     </div>

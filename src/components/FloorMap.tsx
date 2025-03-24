@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+
+import React, { useState, useRef, useEffect } from 'react';
 import { useBooking, Desk } from '@/contexts/BookingContext';
 import { Button } from "@/components/ui/button";
 import { DeskItem } from './DeskItem';
@@ -13,19 +14,21 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Move, Grid, Rows } from 'lucide-react';
+import { Plus, Move, Grid, Rows, Crosshair } from 'lucide-react';
 import { toast } from "sonner";
 
 interface FloorMapProps {
   mapId: string;
   date: Date;
   isEditing?: boolean;
+  showBookingDetails?: boolean;
 }
 
 export const FloorMap: React.FC<FloorMapProps> = ({ 
   mapId, 
   date,
-  isEditing = false 
+  isEditing = false,
+  showBookingDetails = false
 }) => {
   const { 
     maps, 
@@ -33,7 +36,9 @@ export const FloorMap: React.FC<FloorMapProps> = ({
     addDesk, 
     updateDesk, 
     deleteDesk,
-    getDeskStatus 
+    getDeskStatus,
+    getUserById,
+    getBookingByDeskAndDate 
   } = useBooking();
   
   const mapRef = useRef<HTMLDivElement>(null);
@@ -41,6 +46,7 @@ export const FloorMap: React.FC<FloorMapProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [newDesk, setNewDesk] = useState<Omit<Desk, 'id'>>({
     name: '',
     x: 0,
@@ -55,19 +61,40 @@ export const FloorMap: React.FC<FloorMapProps> = ({
   const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
   const [generateCount, setGenerateCount] = useState(5);
   const [rowCount, setRowCount] = useState(1);
+  const [showGrid, setShowGrid] = useState(isEditing);
   
   const currentMap = maps.find(m => m.id === mapId);
   if (!currentMap) return <div>Map not found</div>;
   
   const mapDesks = desks.filter(desk => desk.mapId === mapId);
   
-  const handleAddDesk = () => {
-    const existingCount = mapDesks.length;
-    const newDeskName = `Desk ${existingCount + 1}`;
+  // Get the next desk number based on existing desks
+  const getNextDeskNumber = () => {
+    const deskNumbers = mapDesks
+      .map(desk => {
+        const match = desk.name.match(/Desk\s+(\d+)/i);
+        return match ? parseInt(match[1], 10) : 0;
+      })
+      .filter(num => !isNaN(num));
     
+    const maxNumber = deskNumbers.length > 0 ? Math.max(...deskNumbers) : 0;
+    return maxNumber + 1;
+  };
+
+  // Set default desk name on dialog open
+  useEffect(() => {
+    if (isDialogOpen && !editingDesk) {
+      setNewDesk(prev => ({
+        ...prev,
+        name: `Desk ${getNextDeskNumber()}`
+      }));
+    }
+  }, [isDialogOpen, editingDesk]);
+  
+  const handleAddDesk = () => {
     addDesk({
       ...newDesk,
-      name: newDeskName
+      name: newDesk.name || `Desk ${getNextDeskNumber()}`
     });
     
     setNewDesk({
@@ -80,7 +107,7 @@ export const FloorMap: React.FC<FloorMapProps> = ({
       mapId: mapId
     });
     setIsDialogOpen(false);
-    toast.success(`Desk ${newDeskName} has been added to the map.`);
+    toast.success(`Desk ${newDesk.name} has been added to the map.`);
   };
   
   const handleEditDesk = (desk: Desk) => {
@@ -117,7 +144,6 @@ export const FloorMap: React.FC<FloorMapProps> = ({
   };
   
   const handleGenerateDesks = () => {
-    const existingCount = mapDesks.length;
     const desksPerRow = Math.ceil(generateCount / rowCount);
     const spacingX = 120;
     const spacingY = 120;
@@ -130,7 +156,7 @@ export const FloorMap: React.FC<FloorMapProps> = ({
         if (deskIndex >= generateCount) break;
         
         addDesk({
-          name: `Desk ${existingCount + deskIndex + 1}`,
+          name: `Desk ${getNextDeskNumber() + deskIndex}`,
           x: startX + (i * spacingX),
           y: startY + (r * spacingY),
           width: 80,
@@ -163,6 +189,13 @@ export const FloorMap: React.FC<FloorMapProps> = ({
   };
   
   const handleMouseMove = (e: React.MouseEvent) => {
+    if (mapRef.current) {
+      const rect = mapRef.current.getBoundingClientRect();
+      const x = Math.round((e.clientX - rect.left) / scale - translate.x / scale);
+      const y = Math.round((e.clientY - rect.top) / scale - translate.y / scale);
+      setMousePosition({ x, y });
+    }
+    
     if (!isDragging) return;
     
     setTranslate({
@@ -208,6 +241,33 @@ export const FloorMap: React.FC<FloorMapProps> = ({
     setTranslate({ x: 0, y: 0 });
   };
   
+  const handleMapClick = (e: React.MouseEvent) => {
+    if (!isEditing || !mapRef.current) return;
+    
+    const rect = mapRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / scale - translate.x / scale;
+    const y = (e.clientY - rect.top) / scale - translate.y / scale;
+    
+    setNewDesk({
+      ...newDesk,
+      x,
+      y,
+      name: `Desk ${getNextDeskNumber()}`
+    });
+    
+    setIsDialogOpen(true);
+  };
+  
+  const toggleGrid = () => {
+    setShowGrid(!showGrid);
+  };
+  
+  // Calculate grid cells
+  const gridSizeX = 50;
+  const gridSizeY = 50;
+  const gridCellsX = Math.ceil(currentMap.width / gridSizeX);
+  const gridCellsY = Math.ceil(currentMap.height / gridSizeY);
+  
   return (
     <div className="relative h-full">
       <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
@@ -222,7 +282,18 @@ export const FloorMap: React.FC<FloorMapProps> = ({
         <Button variant="outline" size="icon" onClick={resetView}>
           <Grid size={18} />
         </Button>
+        {isEditing && (
+          <Button variant="outline" size="icon" onClick={toggleGrid}>
+            <Crosshair size={18} />
+          </Button>
+        )}
       </div>
+      
+      {isEditing && (
+        <div className="absolute top-4 left-4 z-10 bg-white/80 backdrop-blur-sm p-2 rounded-md border shadow-sm">
+          <p className="text-sm font-mono">X: {mousePosition.x}, Y: {mousePosition.y}</p>
+        </div>
+      )}
       
       {isEditing && (
         <>
@@ -233,7 +304,7 @@ export const FloorMap: React.FC<FloorMapProps> = ({
                 onClick={() => {
                   setEditingDesk(null);
                   setNewDesk({
-                    name: '',
+                    name: `Desk ${getNextDeskNumber()}`,
                     x: Math.floor(currentMap.width / 2 - 40),
                     y: Math.floor(currentMap.height / 2 - 25),
                     width: 80,
@@ -267,7 +338,6 @@ export const FloorMap: React.FC<FloorMapProps> = ({
                     value={newDesk.name}
                     onChange={(e) => setNewDesk({...newDesk, name: e.target.value})}
                     className="col-span-3"
-                    placeholder={editingDesk ? undefined : `Desk ${mapDesks.length + 1}`}
                   />
                 </div>
                 
@@ -314,35 +384,31 @@ export const FloorMap: React.FC<FloorMapProps> = ({
                   </div>
                 </div>
                 
-                {editingDesk && (
-                  <>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="x" className="text-right">
-                        X Position
-                      </Label>
-                      <Input
-                        id="x"
-                        type="number"
-                        value={newDesk.x}
-                        onChange={(e) => setNewDesk({...newDesk, x: Number(e.target.value)})}
-                        className="col-span-3"
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="y" className="text-right">
-                        Y Position
-                      </Label>
-                      <Input
-                        id="y"
-                        type="number"
-                        value={newDesk.y}
-                        onChange={(e) => setNewDesk({...newDesk, y: Number(e.target.value)})}
-                        className="col-span-3"
-                      />
-                    </div>
-                  </>
-                )}
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="x" className="text-right">
+                    X Position
+                  </Label>
+                  <Input
+                    id="x"
+                    type="number"
+                    value={Math.round(newDesk.x)}
+                    onChange={(e) => setNewDesk({...newDesk, x: Number(e.target.value)})}
+                    className="col-span-3"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="y" className="text-right">
+                    Y Position
+                  </Label>
+                  <Input
+                    id="y"
+                    type="number"
+                    value={Math.round(newDesk.y)}
+                    onChange={(e) => setNewDesk({...newDesk, y: Number(e.target.value)})}
+                    className="col-span-3"
+                  />
+                </div>
               </div>
               
               <DialogFooter>
@@ -428,7 +494,7 @@ export const FloorMap: React.FC<FloorMapProps> = ({
             </div>
             <div className="ml-3">
               <p className="text-sm text-yellow-700">
-                You are in edit mode. Drag desks to reposition them, or click on a desk to edit its properties.
+                You are in edit mode. Click anywhere on the map to add a desk, or drag existing desks to reposition them.
               </p>
             </div>
           </div>
@@ -439,7 +505,7 @@ export const FloorMap: React.FC<FloorMapProps> = ({
         className="map-container bg-gray-50 border border-gray-200 rounded-lg overflow-hidden"
         style={{ 
           height: '70vh', 
-          cursor: isDragging ? 'grabbing' : (isEditing ? 'default' : 'grab') 
+          cursor: isDragging ? 'grabbing' : (isEditing ? 'crosshair' : 'grab') 
         }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -459,6 +525,7 @@ export const FloorMap: React.FC<FloorMapProps> = ({
           }}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
+          onClick={handleMapClick}
         >
           {currentMap.background && (
             <div 
@@ -473,6 +540,59 @@ export const FloorMap: React.FC<FloorMapProps> = ({
             />
           )}
           
+          {showGrid && (
+            <div className="grid-overlay absolute inset-0 pointer-events-none">
+              {/* Vertical grid lines */}
+              {Array.from({ length: gridCellsX + 1 }).map((_, i) => (
+                <div
+                  key={`v-${i}`}
+                  className="absolute top-0 bottom-0 border-r border-dashed border-gray-300"
+                  style={{
+                    left: `${i * gridSizeX}px`,
+                    opacity: 0.5,
+                  }}
+                />
+              ))}
+              
+              {/* Horizontal grid lines */}
+              {Array.from({ length: gridCellsY + 1 }).map((_, i) => (
+                <div
+                  key={`h-${i}`}
+                  className="absolute left-0 right-0 border-b border-dashed border-gray-300"
+                  style={{
+                    top: `${i * gridSizeY}px`,
+                    opacity: 0.5,
+                  }}
+                />
+              ))}
+              
+              {/* Grid coordinates */}
+              {Array.from({ length: gridCellsX }).map((_, i) => (
+                <div
+                  key={`x-${i}`}
+                  className="absolute top-1 text-[9px] font-mono text-gray-500"
+                  style={{
+                    left: `${i * gridSizeX + 2}px`,
+                  }}
+                >
+                  {i * gridSizeX}
+                </div>
+              ))}
+              
+              {Array.from({ length: gridCellsY }).map((_, i) => (
+                <div
+                  key={`y-${i}`}
+                  className="absolute left-1 text-[9px] font-mono text-gray-500"
+                  style={{
+                    top: `${i * gridSizeY + 2}px`,
+                  }}
+                >
+                  {i * gridSizeY}
+                </div>
+              ))}
+            </div>
+          )}
+          
           <div className="desks-layer absolute inset-0 z-10">
             {mapDesks.map(desk => (
               <DeskItem 
@@ -480,6 +600,7 @@ export const FloorMap: React.FC<FloorMapProps> = ({
                 desk={desk} 
                 date={date} 
                 isEditing={isEditing}
+                showBookingDetails={showBookingDetails}
                 onEdit={handleEditDesk}
                 onDelete={handleDeleteDesk}
               />

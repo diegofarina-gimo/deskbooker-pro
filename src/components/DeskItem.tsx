@@ -18,6 +18,7 @@ interface DeskItemProps {
   desk: Desk;
   date: Date;
   isEditing?: boolean;
+  showBookingDetails?: boolean;
   onEdit?: (desk: Desk) => void;
   onDelete?: (id: string) => void;
 }
@@ -26,6 +27,7 @@ export const DeskItem: React.FC<DeskItemProps> = ({
   desk, 
   date, 
   isEditing = false,
+  showBookingDetails = false,
   onEdit,
   onDelete
 }) => {
@@ -78,6 +80,9 @@ export const DeskItem: React.FC<DeskItemProps> = ({
   };
 
   const dotSize = isMobile ? 18 : 24;
+  
+  // Show booking user info on hover if showBookingDetails is true and desk is booked
+  const shouldShowUserInfo = showBookingDetails && status === 'booked' && bookedUser;
 
   return (
     <div
@@ -98,7 +103,7 @@ export const DeskItem: React.FC<DeskItemProps> = ({
           <div 
             className={`w-full h-full rounded-full shadow-md hover:shadow-lg
                        transition-all duration-200 flex items-center justify-center
-                       border-2 ${borderColor}`}
+                       border-2 ${borderColor} relative group`}
             style={{ 
               backgroundColor: dotColor,
               transform: `scale(${isEditing ? '1.2' : '1'})`,
@@ -108,6 +113,21 @@ export const DeskItem: React.FC<DeskItemProps> = ({
               <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold bg-white px-1 rounded shadow">
                 {desk.name}
               </span>
+            )}
+            
+            {shouldShowUserInfo && (
+              <div className="absolute -top-10 left-1/2 -translate-x-1/2 hidden group-hover:block bg-white p-1 rounded-md shadow-md text-xs border w-32 z-20">
+                <div className="font-semibold truncate">{bookedUser.name}</div>
+                {userTeam && (
+                  <div className="flex items-center gap-1">
+                    <div
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: userTeam.color || '#3B82F6' }}
+                    ></div>
+                    <span className="truncate">{userTeam.name}</span>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </DialogTrigger>
