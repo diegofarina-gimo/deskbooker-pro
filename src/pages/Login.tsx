@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useBooking } from '@/contexts/BookingContext';
 import { Button } from "@/components/ui/button";
@@ -9,7 +8,6 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-  CardDivider,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
