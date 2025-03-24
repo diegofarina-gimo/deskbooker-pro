@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useBooking, TimeSlot } from '@/contexts/BookingContext';
 import { Button } from "@/components/ui/button";
@@ -53,12 +52,10 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
   const isAdmin = currentUser?.role === 'admin';
   const isMeetingRoom = desk?.type === 'meeting_room';
   
-  // Find existing bookings for this desk on the selected date
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
   
   useEffect(() => {
     if (isMeetingRoom) {
-      // Get all bookings for this meeting room on the selected date
       const roomBookings = bookings
         .filter(b => b.deskId === deskId && b.date === dateStr)
         .map(booking => {
@@ -84,7 +81,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
   const bookedBy = existingBooking ? getUserById(existingBooking.userId) : null;
   const isMyBooking = existingBooking && existingBooking.userId === currentUser?.id;
   
-  // Generate time slots for meeting rooms (9 AM to 5 PM)
   const timeOptions = [];
   for (let hour = 9; hour <= 17; hour++) {
     for (let minute = 0; minute < 60; minute += 30) {
@@ -94,14 +90,13 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
     }
   }
   
-  const handleBook = () => {
+  const handleBook = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!currentUser) return;
     
-    // Determine which user to book for
     const bookForUserId = isAdmin && selectedUserId ? selectedUserId : currentUser.id;
     const bookForUser = getUserById(bookForUserId);
     
-    // For regular desks, check if user already has a booking
     if (!isMeetingRoom && !isAdmin) {
       const canBook = canUserBookDesk(currentUser.id, selectedDate);
       if (!canBook) {
@@ -110,7 +105,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
       }
     }
     
-    // Create time slot for meeting rooms
     let timeSlot: TimeSlot | undefined;
     if (isMeetingRoom) {
       if (startTime >= endTime) {
@@ -148,7 +142,8 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
     }
   };
   
-  const handleCancel = (bookingId: string) => {
+  const handleCancel = (bookingId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     cancelBooking(bookingId);
     toast.success(`Booking for ${desk?.name} has been cancelled.`);
   };
@@ -170,7 +165,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
   };
   
   return (
-    <div className="p-4 space-y-4 animate-fadeIn">
+    <div className="p-4 space-y-4 animate-fadeIn" onClick={(e) => e.stopPropagation()}>
       {isMeetingRoom && bookingsForDay.length > 0 && (
         <div className="bg-blue-50 p-4 rounded-md mb-4">
           <h3 className="font-medium text-blue-800 mb-2">Existing Bookings Today</h3>
@@ -190,7 +185,10 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
                     variant="ghost"
                     size="icon"
                     className="h-6 w-6"
-                    onClick={() => handleCancel(booking.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCancel(booking.id, e);
+                    }}
                   >
                     <XIcon className="h-4 w-4 text-red-500" />
                   </Button>
@@ -219,7 +217,10 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
               variant="destructive"
               size="sm"
               className="mt-3"
-              onClick={() => handleCancel(existingBooking.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCancel(existingBooking.id, e);
+              }}
             >
               <XIcon className="mr-2 h-4 w-4" />
               Cancel Booking
@@ -236,12 +237,13 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
                   id="booking-date"
                   variant="outline"
                   className="w-full justify-start text-left mt-1"
+                  onClick={(e) => e.stopPropagation()}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {format(selectedDate, 'PPP')}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+              <PopoverContent className="w-auto p-0" align="start" onClick={(e) => e.stopPropagation()}>
                 <Calendar
                   mode="single"
                   selected={selectedDate}
@@ -262,10 +264,10 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
                     value={startTime} 
                     onValueChange={setStartTime}
                   >
-                    <SelectTrigger id="start-time" className="w-full mt-1">
+                    <SelectTrigger id="start-time" className="w-full mt-1" onClick={(e) => e.stopPropagation()}>
                       <SelectValue placeholder="Select start time" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent onClick={(e) => e.stopPropagation()}>
                       {timeOptions.slice(0, -1).map(time => (
                         <SelectItem key={`start-${time}`} value={time}>
                           {time}
@@ -280,10 +282,10 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
                     value={endTime} 
                     onValueChange={setEndTime}
                   >
-                    <SelectTrigger id="end-time" className="w-full mt-1">
+                    <SelectTrigger id="end-time" className="w-full mt-1" onClick={(e) => e.stopPropagation()}>
                       <SelectValue placeholder="Select end time" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent onClick={(e) => e.stopPropagation()}>
                       {timeOptions.slice(1).map(time => (
                         <SelectItem key={`end-${time}`} value={time}>
                           {time}
@@ -324,7 +326,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
           )}
           
           {!isMeetingRoom && (
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
               <Checkbox 
                 id="recurring" 
                 checked={isRecurring}
@@ -335,7 +337,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
           )}
           
           {isRecurring && !isMeetingRoom && (
-            <div className="ml-6 space-y-2 animate-slideIn">
+            <div className="ml-6 space-y-2 animate-slideIn" onClick={(e) => e.stopPropagation()}>
               <Label>Select days of the week</Label>
               <div className="grid grid-cols-2 gap-2 mt-1">
                 {weekdays.map((day) => (

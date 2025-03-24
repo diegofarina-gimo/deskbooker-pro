@@ -82,6 +82,7 @@ export const FloorMap: React.FC<FloorMapProps> = ({
   const [generateCount, setGenerateCount] = useState(5);
   const [rowCount, setRowCount] = useState(1);
   const [showGrid, setShowGrid] = useState(isEditing);
+  const [isDraggedMap, setIsDraggedMap] = useState(false);
 
   useEffect(() => {
     if (!isEditing) {
@@ -241,11 +242,15 @@ export const FloorMap: React.FC<FloorMapProps> = ({
     if (e.target instanceof Element && 
         (e.target.closest('.desk') || 
          e.target.closest('button') || 
-         e.target.closest('.react-flow__controls'))) {
+         e.target.closest('.react-flow__controls') ||
+         e.target.closest('select') ||
+         e.target.closest('dialog') ||
+         e.target.closest('popover'))) {
       return;
     }
     
     setIsDragging(true);
+    setIsDraggedMap(false);
     setStartPos({
       x: e.clientX - translate.x,
       y: e.clientY - translate.y
@@ -261,6 +266,11 @@ export const FloorMap: React.FC<FloorMapProps> = ({
     }
     
     if (!isDragging) return;
+    
+    if (Math.abs(e.clientX - (startPos.x + translate.x)) > 5 || 
+        Math.abs(e.clientY - (startPos.y + translate.y)) > 5) {
+      setIsDraggedMap(true);
+    }
     
     setTranslate({
       x: e.clientX - startPos.x,
@@ -306,10 +316,10 @@ export const FloorMap: React.FC<FloorMapProps> = ({
   };
   
   const handleMapClick = (e: React.MouseEvent) => {
-    if (!isEditing || !mapRef.current) return;
+    if (!isEditing || !mapRef.current || isDraggedMap) return;
     
     const target = e.target as Element;
-    if (target.closest('.desk')) {
+    if (target.closest('.desk') || target.closest('button') || target.closest('dialog')) {
       return;
     }
     
@@ -391,7 +401,7 @@ export const FloorMap: React.FC<FloorMapProps> = ({
       {isEditing && (
         <>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogContent>
+            <DialogContent onClick={(e) => e.stopPropagation()}>
               <DialogHeader>
                 <DialogTitle>{editingDesk ? 'Edit Resource' : 'Add New Desk'}</DialogTitle>
                 <DialogDescription>
@@ -540,7 +550,8 @@ export const FloorMap: React.FC<FloorMapProps> = ({
             <DialogTrigger asChild>
               <Button 
                 className="absolute bottom-4 right-28 z-10 bg-blue-500 hover:bg-blue-600 text-white"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   setNewDesk({
                     name: `Meeting Room ${getNextDeskNumber('Meeting Room')}`,
                     x: Math.floor(currentMap.width / 2 - 40),
@@ -559,7 +570,7 @@ export const FloorMap: React.FC<FloorMapProps> = ({
                 Add Resource
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent onClick={(e) => e.stopPropagation()}>
               <DialogHeader>
                 <DialogTitle>Add New Meeting Room</DialogTitle>
                 <DialogDescription>
@@ -636,7 +647,8 @@ export const FloorMap: React.FC<FloorMapProps> = ({
             <DialogTrigger asChild>
               <Button 
                 className="absolute bottom-4 right-4 z-10"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   setEditingDesk(null);
                   setNewDesk({
                     name: `Desk ${getNextDeskNumber()}`,

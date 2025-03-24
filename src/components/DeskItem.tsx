@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useBooking, Desk } from '@/contexts/BookingContext';
 import { Card } from "@/components/ui/card";
@@ -33,6 +34,7 @@ export const DeskItem: React.FC<DeskItemProps> = ({
 }) => {
   const { getDeskStatus, currentUser, getBookingByDeskAndDate, getUserById, getTeamById, bookings } = useBooking();
   const isMobile = useIsMobile();
+  const [dialogOpen, setDialogOpen] = useState(false);
   
   const status = getDeskStatus(desk.id, date);
   const booking = getBookingByDeskAndDate(desk.id, date);
@@ -120,9 +122,20 @@ export const DeskItem: React.FC<DeskItemProps> = ({
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
     if (onDelete) {
       onDelete(desk.id);
+      setDialogOpen(false);
+    }
+  };
+
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (onEdit) {
+      onEdit(desk);
     }
   };
 
@@ -148,7 +161,7 @@ export const DeskItem: React.FC<DeskItemProps> = ({
       draggable={isEditing}
       onDragStart={handleDragStart}
     >
-      <Dialog>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogTrigger asChild>
           <div 
             className={`w-full h-full rounded-full shadow-md hover:shadow-lg
@@ -158,6 +171,10 @@ export const DeskItem: React.FC<DeskItemProps> = ({
               background: dotColor,
               transform: `scale(${isEditing ? '1.2' : '1'})`,
               boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setDialogOpen(true);
             }}
           >
             {isEditing && (
@@ -191,7 +208,7 @@ export const DeskItem: React.FC<DeskItemProps> = ({
             )}
           </div>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px]" onClick={(e) => e.stopPropagation()}>
           <DialogHeader>
             <DialogTitle>{desk.name}</DialogTitle>
             <DialogDescription>
@@ -213,7 +230,7 @@ export const DeskItem: React.FC<DeskItemProps> = ({
             <div className="grid gap-4 py-4">
               <div className="flex justify-between">
                 <button
-                  onClick={() => onEdit?.(desk)}
+                  onClick={handleEdit}
                   className="px-4 py-2 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition-colors"
                 >
                   Edit {isMeetingRoom ? 'Meeting Room' : 'Desk'}
