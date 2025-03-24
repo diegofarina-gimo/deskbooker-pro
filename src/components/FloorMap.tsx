@@ -198,6 +198,7 @@ export const FloorMap: React.FC<FloorMapProps> = ({
   const handleDeleteDesk = (id: string) => {
     deleteDesk(id);
     toast.success(`Resource has been removed from the map.`);
+    setIsDialogOpen(false);
   };
   
   const handleGenerateDesks = () => {
@@ -237,7 +238,12 @@ export const FloorMap: React.FC<FloorMapProps> = ({
   };
   
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (isEditing) return;
+    if (e.target instanceof Element && 
+        (e.target.closest('.desk') || 
+         e.target.closest('button') || 
+         e.target.closest('.react-flow__controls'))) {
+      return;
+    }
     
     setIsDragging(true);
     setStartPos({

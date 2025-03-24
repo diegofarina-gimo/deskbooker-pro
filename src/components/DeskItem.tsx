@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useBooking, Desk } from '@/contexts/BookingContext';
 import { Card } from "@/components/ui/card";
@@ -40,50 +39,40 @@ export const DeskItem: React.FC<DeskItemProps> = ({
   const bookedUser = booking ? getUserById(booking.userId) : null;
   const userTeam = bookedUser?.teamId ? getTeamById(bookedUser.teamId) : null;
 
-  // Get dot color based on status and type
-  let dotColor = '#4CAF50'; // Green for available
+  let dotColor = '#4CAF50';
   let borderColor = 'border-green-400';
   let textColor = 'text-green-800';
   let bgColor = 'bg-white';
   let statusText = 'Available';
   let icon = null;
   
-  // For meeting rooms, check if it's currently booked based on time
   const now = new Date();
   const currentTimeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   
-  // Check if today's date matches the selected date
   const isToday = date.toDateString() === new Date().toDateString();
   
-  // Check if meeting room is currently in a booked time slot
   const isCurrentlyBooked = (desk.type === 'meeting_room' && booking?.timeSlot && isToday) ? 
     (currentTimeString >= booking.timeSlot.startTime && currentTimeString <= booking.timeSlot.endTime) : false;
 
-  // For meeting rooms, always allow booking if it's not under maintenance
-  // Only show as unavailable if it's currently in a booked time slot
   const isBookable = status === 'available' || 
     (desk.type === 'meeting_room' && status === 'booked' && !isCurrentlyBooked);
     
   const isBooked = (status === 'booked' && desk.type !== 'meeting_room') || isCurrentlyBooked;
   const isMeetingRoom = desk.type === 'meeting_room';
 
-  // Calculate if the meeting room has multiple bookings for the day
   const hasMultipleBookings = isMeetingRoom && 
     bookings.filter(b => b.deskId === desk.id && 
                     b.date === format(date, 'yyyy-MM-dd')).length > 1;
 
-  // For meeting rooms, use blue color theme
   if (isMeetingRoom) {
     if (desk.status !== 'maintenance') {
       if (isCurrentlyBooked) {
-        // Gradient gray for currently booked meeting room
         dotColor = 'linear-gradient(145deg, #9F9EA1, #C8C8C9)';
         borderColor = 'border-gray-400';
         textColor = 'text-gray-800';
         statusText = 'In Use';
         icon = <Clock className="h-3 w-3" />;
       } else {
-        // Blue for meeting room (either available or has other bookings at different times)
         dotColor = '#1EAEDB'; 
         borderColor = 'border-blue-400';
         textColor = 'text-blue-800';
@@ -91,25 +80,22 @@ export const DeskItem: React.FC<DeskItemProps> = ({
         icon = hasMultipleBookings ? <Users className="h-3 w-3" /> : null;
       }
     } else {
-      // Meeting room under maintenance
-      dotColor = '#F59E0B'; // Amber/orange for maintenance
+      dotColor = '#F59E0B';
       borderColor = 'border-yellow-400';
       textColor = 'text-yellow-800';
       statusText = 'Maintenance';
       icon = <Wrench className="h-3 w-3" />;
     }
   } else {
-    // For regular desks
     switch (status) {
       case 'available':
-        dotColor = '#4CAF50'; // Green
+        dotColor = '#4CAF50';
         bgColor = 'bg-green-50';
         borderColor = 'border-green-400';
         textColor = 'text-green-800';
         statusText = 'Available';
         break;
       case 'booked':
-        // Gradient gray for booked desks
         dotColor = 'linear-gradient(145deg, #9F9EA1, #C8C8C9)';
         bgColor = 'bg-gray-50';
         borderColor = 'border-gray-400';
@@ -118,7 +104,7 @@ export const DeskItem: React.FC<DeskItemProps> = ({
         icon = <User className="h-3 w-3" />;
         break;
       case 'maintenance':
-        dotColor = '#F59E0B'; // Amber/orange
+        dotColor = '#F59E0B';
         bgColor = 'bg-yellow-50';
         borderColor = 'border-yellow-400';
         textColor = 'text-yellow-800';
@@ -134,14 +120,18 @@ export const DeskItem: React.FC<DeskItemProps> = ({
     }
   };
 
+  const handleDelete = () => {
+    if (onDelete) {
+      onDelete(desk.id);
+    }
+  };
+
   const dotSize = isMobile ? 18 : 24;
   
-  // Show booking user info on hover if showBookingDetails is true and desk is booked
   const shouldShowUserInfo = showBookingDetails && 
     ((status === 'booked' && bookedUser) || 
     (isMeetingRoom && booking && bookedUser));
 
-  // Fix: Ensure we only pass "available" or "booked" to BookingForm
   const bookingFormStatus = desk.status === 'maintenance' ? 'available' : (isCurrentlyBooked ? 'booked' : 'available');
 
   return (
@@ -152,8 +142,8 @@ export const DeskItem: React.FC<DeskItemProps> = ({
         top: `${desk.y}px`,
         width: `${dotSize}px`,
         height: `${dotSize}px`,
-        zIndex: 10, // Ensure dots are above the map background
-        transform: 'translate(-50%, -50%)', // Center the dot on the exact coordinates
+        zIndex: 10,
+        transform: 'translate(-50%, -50%)',
       }}
       draggable={isEditing}
       onDragStart={handleDragStart}
@@ -196,7 +186,6 @@ export const DeskItem: React.FC<DeskItemProps> = ({
               </div>
             )}
             
-            {/* Indicator for resources with multiple bookings */}
             {hasMultipleBookings && !isEditing && (
               <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
             )}
@@ -230,7 +219,7 @@ export const DeskItem: React.FC<DeskItemProps> = ({
                   Edit {isMeetingRoom ? 'Meeting Room' : 'Desk'}
                 </button>
                 <button
-                  onClick={() => onDelete?.(desk.id)}
+                  onClick={handleDelete}
                   className="px-4 py-2 bg-red-50 text-red-600 rounded-md hover:bg-red-100 transition-colors"
                 >
                   Delete
@@ -262,4 +251,3 @@ export const DeskItem: React.FC<DeskItemProps> = ({
     </div>
   );
 };
-
