@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useBooking } from '@/contexts/BookingContext';
@@ -26,6 +25,7 @@ const MeetingRoomDisplay = () => {
   } = useBooking();
   
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
+  const [customTimeSlot, setCustomTimeSlot] = useState<{startTime: string, endTime: string} | null>(null);
   const [currentStatus, setCurrentStatus] = useState<'available' | 'occupied'>('available');
   const [currentBookingId, setCurrentBookingId] = useState<string | null>(null);
   
@@ -194,6 +194,41 @@ const MeetingRoomDisplay = () => {
       toast.success("Meeting ended successfully");
     }
   };
+
+  // Updated handleQuickBook to start from current time
+  const handleQuickBook = (durationMinutes: number) => {
+    if (!currentUser) {
+      toast.error("You must be logged in to book a room");
+      return;
+    }
+    
+    // Always use the current time as the start time for quick bookings
+    const realNow = new Date();
+    let startTime: string;
+    
+    if (isToday) {
+      // For today, use the actual current time
+      startTime = `${String(realNow.getHours()).padStart(2, '0')}:${String(realNow.getMinutes()).padStart(2, '0')}`;
+    } else {
+      // For future days, start at 9 AM
+      startTime = "09:00";
+    }
+    
+    // Calculate end time based on the duration from the start time
+    const startDate = new Date();
+    startDate.setHours(parseInt(startTime.split(':')[0], 10));
+    startDate.setMinutes(parseInt(startTime.split(':')[1], 10));
+    
+    const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
+    const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
+    
+    setCustomTimeSlot({
+      startTime,
+      endTime
+    });
+    
+    setIsBookingDialogOpen(true);
+  };
   
   return (
     <div className="min-h-screen flex">
@@ -317,80 +352,48 @@ const MeetingRoomDisplay = () => {
               </CardContent>
             </Card>
             
-            {isToday && currentStatus === 'available' && (
+            {currentStatus === 'available' && (
               <Card className="shadow-md overflow-hidden bg-gradient-to-br from-white to-gray-50">
                 <CardHeader className="pb-3 border-b">
                   <CardTitle className="flex items-center gap-2">
                     <Bookmark className="h-5 w-5 text-green-500" />
-                    Quick Book
+                    {isToday ? "Quick Book" : "Book Room"}
                   </CardTitle>
                   <CardDescription>
-                    Need the room right now? Book it quickly!
+                    {isToday 
+                      ? "Need the room right now? Book it quickly!"
+                      : "Book this room for a future date"}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                    <Button 
-                      onClick={() => {
-                        const now = new Date();
-                        const startTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-                        const endTime = format(new Date(now.getTime() + 15 * 60000), 'HH:mm');
-                        
-                        handleBookClick({
-                          startTime,
-                          endTime
-                        });
-                      }}
-                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
-                    >
-                      15 min
-                    </Button>
-                    <Button 
-                      onClick={() => {
-                        const now = new Date();
-                        const startTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-                        const endTime = format(new Date(now.getTime() + 30 * 60000), 'HH:mm');
-                        
-                        handleBookClick({
-                          startTime,
-                          endTime
-                        });
-                      }}
-                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
-                    >
-                      30 min
-                    </Button>
-                    <Button 
-                      onClick={() => {
-                        const now = new Date();
-                        const startTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-                        const endTime = format(new Date(now.getTime() + 60 * 60000), 'HH:mm');
-                        
-                        handleBookClick({
-                          startTime,
-                          endTime
-                        });
-                      }}
-                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
-                    >
-                      1 hour
-                    </Button>
-                    <Button 
-                      onClick={() => {
-                        const now = new Date();
-                        const startTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-                        const endTime = format(new Date(now.getTime() + 120 * 60000), 'HH:mm');
-                        
-                        handleBookClick({
-                          startTime,
-                          endTime
-                        });
-                      }}
-                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
-                    >
-                      2 hours
-                    </Button>
-                  </div>
+                  {isToday && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                      <Button 
+                        onClick={() => handleQuickBook(15)}
+                        className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                      >
+                        15 min
+                      </Button>
+                      <Button 
+                        onClick={() => handleQuickBook(30)}
+                        className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                      >
+                        30 min
+                      </Button>
+                      <Button 
+                        onClick={() => handleQuickBook(60)}
+                        className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                      >
+                        1 hour
+                      </Button>
+                      <Button 
+                        onClick={() => handleQuickBook(120)}
+                        className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                      >
+                        2 hours
+                      </Button>
+                    </div>
+                  )}
                   
                   <div className="mt-4">
                     <Dialog open={isBookingDialogOpen} onOpenChange={setIsBookingDialogOpen}>
@@ -399,7 +402,7 @@ const MeetingRoomDisplay = () => {
                           variant="outline" 
                           className="w-full bg-white"
                         >
-                          Custom Booking
+                          {isToday ? "Custom Booking" : "Book This Room"}
                         </Button>
                       </DialogTrigger>
                       <DialogContent>
@@ -410,6 +413,7 @@ const MeetingRoomDisplay = () => {
                           deskId={room.id} 
                           date={selectedDate} 
                           status="available"
+                          preselectedTimeSlot={customTimeSlot || undefined}
                         />
                       </DialogContent>
                     </Dialog>
@@ -427,19 +431,6 @@ const MeetingRoomDisplay = () => {
       }`}></div>
     </div>
   );
-  
-  function handleBookClick(timeSlot: { startTime: string; endTime: string }) {
-    if (!currentUser) {
-      toast.error("You must be logged in to book a room");
-      return;
-    }
-    
-    const success = true; // We'll actually handle the booking in the BookingForm component
-    
-    if (success) {
-      setIsBookingDialogOpen(true);
-    }
-  }
 };
 
 export default MeetingRoomDisplay;
