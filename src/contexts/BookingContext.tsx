@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User as SupabaseUser } from '@supabase/supabase-js';
@@ -173,40 +174,42 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     );
 
     // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       setSupabaseUser(session?.user ?? null);
       
       if (session?.user) {
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
-          .then(({ data }) => {
-            if (data) {
-              setCurrentUser({
-                id: data.id,
-                name: data.name,
-                email: data.email,
-                role: data.role as Role,
-                avatar: data.avatar,
-                teamId: data.team_id,
-                bio: data.bio,
-                phone: data.phone,
-                isTeamLeader: data.is_team_leader
-              });
-            }
-            setIsLoading(false);
-          })
-          .catch((error) => {
-            console.error("Error fetching user profile:", error);
-            setIsLoading(false);
-          });
+        try {
+          const { data } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+            
+          if (data) {
+            setCurrentUser({
+              id: data.id,
+              name: data.name,
+              email: data.email,
+              role: data.role as Role,
+              avatar: data.avatar,
+              teamId: data.team_id,
+              bio: data.bio,
+              phone: data.phone,
+              isTeamLeader: data.is_team_leader
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching user profile:", error);
+        } finally {
+          setIsLoading(false);
+        }
       } else {
         setIsLoading(false);
       }
-    });
-
+    };
+    
+    checkSession();
     return () => subscription.unsubscribe();
   }, []);
 
@@ -401,16 +404,16 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (error) throw error;
       
       if (data) {
-        const newDesk = { 
+        const newDesk: Desk = { 
           id: data.id,
           name: data.name,
           x: data.x,
           y: data.y,
           width: data.width,
           height: data.height,
-          status: data.status,
+          status: data.status as DeskStatus,
           mapId: data.map_id,
-          type: data.type,
+          type: data.type as ResourceType,
           capacity: data.capacity
         };
         setDesks([...desks, newDesk]);
