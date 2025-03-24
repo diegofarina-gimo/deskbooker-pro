@@ -2,11 +2,11 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { useBooking } from '@/contexts/BookingContext';
+import { useLocalBooking } from '@/contexts/LocalBookingContext';
 import { Login } from './Login';
 
 const Index = () => {
-  const { currentUser } = useBooking();
+  const { currentUser } = useLocalBooking();
   const navigate = useNavigate();
   
   useEffect(() => {

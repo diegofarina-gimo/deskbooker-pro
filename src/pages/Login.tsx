@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from 'sonner';
-import { useBooking } from '@/contexts/BookingContext';
+import { useLocalBooking } from '@/contexts/LocalBookingContext';
+import api from '@/integrations/api/client';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -15,7 +15,7 @@ const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isCreatingTestUser, setIsCreatingTestUser] = useState(false);
   const navigate = useNavigate();
-  const { currentUser } = useBooking();
+  const { currentUser, setCurrentUser } = useLocalBooking();
   
   useEffect(() => {
     if (currentUser) {
@@ -34,16 +34,20 @@ const Login: React.FC = () => {
     setIsLoading(true);
     
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
+      const { user } = await api.auth.login(email, password);
       
-      if (error) throw error;
-      
-      navigate('/dashboard');
+      if (user) {
+        setCurrentUser({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          avatar: user.avatar
+        });
+        navigate('/dashboard');
+      }
     } catch (error: any) {
-      toast.error(error.message || 'Error logging in');
+      toast.error(error.response?.data?.error || 'Error logging in');
     } finally {
       setIsLoading(false);
     }
@@ -52,11 +56,7 @@ const Login: React.FC = () => {
   const createTestUser = async () => {
     setIsCreatingTestUser(true);
     try {
-      const { data, error } = await supabase.functions.invoke('setup-test-user');
-      
-      if (error) {
-        throw error;
-      }
+      const { data } = await api.auth.setupTestUser();
       
       if (data.message) {
         toast.success(data.message);
@@ -66,7 +66,7 @@ const Login: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Error creating test user:', error);
-      toast.error(error.message || 'Error creating test user');
+      toast.error(error.response?.data?.error || 'Error creating test user');
     } finally {
       setIsCreatingTestUser(false);
     }
