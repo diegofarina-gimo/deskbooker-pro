@@ -59,7 +59,11 @@ export const DeskItem: React.FC<DeskItemProps> = ({
   const isCurrentlyBooked = (desk.type === 'meeting_room' && booking?.timeSlot && isToday) ? 
     (currentTimeString >= booking.timeSlot.startTime && currentTimeString <= booking.timeSlot.endTime) : false;
 
-  const isBookable = status === 'available' || (desk.type === 'meeting_room' && status === 'booked' && !isCurrentlyBooked);
+  // For meeting rooms, always allow booking if it's not under maintenance
+  // Only show as unavailable if it's currently in a booked time slot
+  const isBookable = status === 'available' || 
+    (desk.type === 'meeting_room' && status === 'booked' && !isCurrentlyBooked);
+    
   const isBooked = (status === 'booked' && desk.type !== 'meeting_room') || isCurrentlyBooked;
   const isMeetingRoom = desk.type === 'meeting_room';
 
@@ -70,25 +74,24 @@ export const DeskItem: React.FC<DeskItemProps> = ({
 
   // For meeting rooms, use blue color theme
   if (isMeetingRoom) {
-    if (isBookable) {
-      dotColor = '#1EAEDB'; // Blue for available meeting room
-      borderColor = 'border-blue-400';
-      textColor = 'text-blue-800';
-      statusText = 'Available';
-    } else if (isCurrentlyBooked) {
-      // Gradient gray for booked meeting room
-      dotColor = 'linear-gradient(145deg, #9F9EA1, #C8C8C9)';
-      borderColor = 'border-gray-400';
-      textColor = 'text-gray-800';
-      statusText = 'In Use';
-      icon = <Clock className="h-3 w-3" />;
-    } else if (status === 'booked') {
-      dotColor = '#1EAEDB'; // Blue with reduced opacity for booked but not currently in use
-      borderColor = 'border-blue-400';
-      textColor = 'text-blue-800';
-      statusText = 'Has Bookings';
-      icon = <Users className="h-3 w-3" />;
+    if (desk.status !== 'maintenance') {
+      if (isCurrentlyBooked) {
+        // Gradient gray for currently booked meeting room
+        dotColor = 'linear-gradient(145deg, #9F9EA1, #C8C8C9)';
+        borderColor = 'border-gray-400';
+        textColor = 'text-gray-800';
+        statusText = 'In Use';
+        icon = <Clock className="h-3 w-3" />;
+      } else {
+        // Blue for meeting room (either available or has other bookings at different times)
+        dotColor = '#1EAEDB'; 
+        borderColor = 'border-blue-400';
+        textColor = 'text-blue-800';
+        statusText = hasMultipleBookings ? 'Has Bookings' : 'Available';
+        icon = hasMultipleBookings ? <Users className="h-3 w-3" /> : null;
+      }
     } else {
+      // Meeting room under maintenance
       dotColor = '#F59E0B'; // Amber/orange for maintenance
       borderColor = 'border-yellow-400';
       textColor = 'text-yellow-800';
@@ -201,18 +204,14 @@ export const DeskItem: React.FC<DeskItemProps> = ({
             <DialogTitle>{desk.name}</DialogTitle>
             <DialogDescription>
               {isMeetingRoom ? `Meeting room capacity: ${desk.capacity || 4} people` : ''}
-              {isBookable
+              {desk.status !== 'maintenance'
                 ? isMeetingRoom 
                   ? `This meeting room is available for booking.${hasMultipleBookings ? ' There are already some bookings for today.' : ''}`
-                  : 'This desk is available for booking.'
-                : status === 'maintenance'
-                ? `This ${isMeetingRoom ? 'meeting room' : 'desk'} is currently under maintenance.`
-                : bookedUser
-                  ? `This ${isMeetingRoom ? 'meeting room' : 'desk'} is ${isMeetingRoom && !isCurrentlyBooked ? 'booked later' : 'currently booked'} by ${bookedUser.name}${userTeam ? ` (${userTeam.name})` : ''}.`
-                  : `This ${isMeetingRoom ? 'meeting room' : 'desk'} is currently booked.`}
-              {booking?.timeSlot && (
+                  : status === 'available' ? 'This desk is available for booking.' : 'This desk is currently booked.'
+                : `This ${isMeetingRoom ? 'meeting room' : 'desk'} is currently under maintenance.`}
+              {booking?.timeSlot && isCurrentlyBooked && (
                 <div className="mt-1">
-                  Time: {booking.timeSlot.startTime} - {booking.timeSlot.endTime}
+                  Currently booked: {booking.timeSlot.startTime} - {booking.timeSlot.endTime}
                 </div>
               )}
             </DialogDescription>
@@ -236,7 +235,7 @@ export const DeskItem: React.FC<DeskItemProps> = ({
               </div>
             </div>
           ) : (
-            status !== 'maintenance' ? (
+            desk.status !== 'maintenance' ? (
               <BookingForm deskId={desk.id} date={date} status={status} />
             ) : (
               <div className="py-4">

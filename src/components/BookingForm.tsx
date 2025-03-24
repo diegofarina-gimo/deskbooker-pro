@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useBooking, TimeSlot } from '@/contexts/BookingContext';
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -37,7 +37,8 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
     getDeskById,
     getUserById,
     users,
-    canUserBookDesk
+    canUserBookDesk,
+    getBookingByDeskAndDate
   } = useBooking();
   
   const [selectedDate, setSelectedDate] = useState<Date>(date);
@@ -46,16 +47,40 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
   const [selectedUserId, setSelectedUserId] = useState<string>(currentUser?.id || '');
   const [startTime, setStartTime] = useState<string>("09:00");
   const [endTime, setEndTime] = useState<string>("10:00");
+  const [bookingsForDay, setBookingsForDay] = useState<any[]>([]);
   
   const desk = getDeskById(deskId);
   const isAdmin = currentUser?.role === 'admin';
   const isMeetingRoom = desk?.type === 'meeting_room';
   
-  // Find if there's a booking for this desk on the selected date
-  const existingBooking = bookings.find(
-    b => b.deskId === deskId && b.date === format(selectedDate, 'yyyy-MM-dd')
-  );
+  // Find existing bookings for this desk on the selected date
+  const dateStr = format(selectedDate, 'yyyy-MM-dd');
   
+  useEffect(() => {
+    if (isMeetingRoom) {
+      // Get all bookings for this meeting room on the selected date
+      const roomBookings = bookings
+        .filter(b => b.deskId === deskId && b.date === dateStr)
+        .map(booking => {
+          const user = getUserById(booking.userId);
+          return {
+            id: booking.id,
+            userId: booking.userId,
+            userName: user?.name || 'Unknown User',
+            timeSlot: booking.timeSlot,
+            isCurrentUserBooking: booking.userId === currentUser?.id
+          };
+        })
+        .sort((a, b) => {
+          if (!a.timeSlot || !b.timeSlot) return 0;
+          return a.timeSlot.startTime.localeCompare(b.timeSlot.startTime);
+        });
+      
+      setBookingsForDay(roomBookings);
+    }
+  }, [bookings, deskId, dateStr, currentUser?.id, isMeetingRoom, getUserById]);
+  
+  const existingBooking = getBookingByDeskAndDate(deskId, selectedDate);
   const bookedBy = existingBooking ? getUserById(existingBooking.userId) : null;
   const isMyBooking = existingBooking && existingBooking.userId === currentUser?.id;
   
@@ -113,7 +138,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
         ? `You've successfully booked ${desk?.name} for ${bookForUser.name} on ${format(selectedDate, 'PPPP')}`
         : `You've successfully booked ${desk?.name} for ${format(selectedDate, 'PPPP')}`;
       
-      toast.success(bookingMessage);
+      toast.success(bookingMessage + (isMeetingRoom ? ` from ${startTime} to ${endTime}` : ''));
     } else {
       if (isMeetingRoom) {
         toast.error(`This time slot is not available. Please select a different time.`);
@@ -123,10 +148,8 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
     }
   };
   
-  const handleCancel = () => {
-    if (!existingBooking) return;
-    
-    cancelBooking(existingBooking.id);
+  const handleCancel = (bookingId: string) => {
+    cancelBooking(bookingId);
     toast.success(`Booking for ${desk?.name} has been cancelled.`);
   };
   
@@ -148,7 +171,37 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
   
   return (
     <div className="p-4 space-y-4 animate-fadeIn">
-      {status === 'booked' ? (
+      {isMeetingRoom && bookingsForDay.length > 0 && (
+        <div className="bg-blue-50 p-4 rounded-md mb-4">
+          <h3 className="font-medium text-blue-800 mb-2">Existing Bookings Today</h3>
+          <div className="space-y-2 max-h-36 overflow-y-auto">
+            {bookingsForDay.map((booking) => (
+              <div key={booking.id} className="flex justify-between items-center text-sm border-b pb-1">
+                <div>
+                  <span className="font-medium">{booking.userName}</span>
+                  {booking.timeSlot && (
+                    <span className="text-gray-600 ml-2">
+                      {booking.timeSlot.startTime} - {booking.timeSlot.endTime}
+                    </span>
+                  )}
+                </div>
+                {(booking.isCurrentUserBooking || isAdmin) && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => handleCancel(booking.id)}
+                  >
+                    <XIcon className="h-4 w-4 text-red-500" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {!isMeetingRoom && status === 'booked' && existingBooking ? (
         <div className="bg-blue-50 p-4 rounded-md">
           <h3 className="font-medium text-blue-800">Currently Booked</h3>
           {bookedBy && (
@@ -166,7 +219,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
               variant="destructive"
               size="sm"
               className="mt-3"
-              onClick={handleCancel}
+              onClick={() => handleCancel(existingBooking.id)}
             >
               <XIcon className="mr-2 h-4 w-4" />
               Cancel Booking

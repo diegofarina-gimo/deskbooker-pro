@@ -365,12 +365,21 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const addBooking = (booking: Omit<Booking, 'id'>): boolean => {
     const desk = getDeskById(booking.deskId);
     
-    if (desk?.type === 'desk' && !canUserBookDesk(booking.userId, new Date(booking.date))) {
+    if (!desk) return false;
+    
+    // For regular desks, check if user already has a booking for the day
+    if (desk.type === 'desk' && !canUserBookDesk(booking.userId, new Date(booking.date))) {
       return false;
     }
     
-    if (desk?.type === 'meeting_room' && booking.timeSlot) {
-      const isAvailable = isMeetingRoomAvailableAtTime(booking.deskId, new Date(booking.date), booking.timeSlot);
+    // For meeting rooms, check if the requested time slot is available
+    if (desk.type === 'meeting_room' && booking.timeSlot) {
+      const isAvailable = isMeetingRoomAvailableAtTime(
+        booking.deskId, 
+        new Date(booking.date), 
+        booking.timeSlot
+      );
+      
       if (!isAvailable) return false;
     }
     
@@ -412,10 +421,10 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const weekday = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
     
     const desk = desks.find(d => d.id === deskId);
-    if (desk?.status === 'maintenance') return false;
+    if (!desk || desk.status === 'maintenance') return false;
     
     // If it's a meeting room with a time slot, use the specialized checker
-    if (desk?.type === 'meeting_room' && timeSlot) {
+    if (desk.type === 'meeting_room' && timeSlot) {
       return isMeetingRoomAvailableAtTime(deskId, date, timeSlot);
     }
     
@@ -442,7 +451,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       (b.date === dateStr || 
         (b.isRecurring && b.recurringDays?.includes(weekday))
       ) && 
-      b.timeSlot
+      b.timeSlot // Only consider bookings with time slots
     );
     
     // Check if any existing booking overlaps with the requested time slot
@@ -454,6 +463,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const requestStart = timeToMinutes(timeSlot.startTime);
       const requestEnd = timeToMinutes(timeSlot.endTime);
       
+      // Check for overlap - if requested time starts before booking ends AND requested time ends after booking starts
       return (requestStart < bookingEnd && requestEnd > bookingStart);
     });
   };
@@ -465,14 +475,14 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const getDeskStatus = (deskId: string, date: Date): DeskStatus => {
     const desk = desks.find(d => d.id === deskId);
-    if (desk?.status === 'maintenance') return 'maintenance';
+    if (!desk || desk.status === 'maintenance') return 'maintenance';
     
     const dateStr = formatDateString(date);
     
     // For meeting rooms, check if there are any bookings for the day
-    // but the status is still considered available since they can be booked
-    // at different times
-    if (desk?.type === 'meeting_room') {
+    // but the status is still considered 'booked' for UI purposes (blue dot)
+    // even though new bookings at different times are allowed
+    if (desk.type === 'meeting_room') {
       const hasBookings = bookings.some(b => 
         b.deskId === deskId && b.date === dateStr
       );
