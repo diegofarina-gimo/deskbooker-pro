@@ -13,6 +13,7 @@ const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isCreatingTestUser, setIsCreatingTestUser] = useState(false);
   const navigate = useNavigate();
   const { currentUser } = useBooking();
   
@@ -45,6 +46,29 @@ const Login: React.FC = () => {
       toast.error(error.message || 'Error logging in');
     } finally {
       setIsLoading(false);
+    }
+  };
+  
+  const createTestUser = async () => {
+    setIsCreatingTestUser(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('setup-test-user');
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data.message) {
+        toast.success(data.message);
+        // Auto-fill the credentials
+        setEmail('admin@example.com');
+        setPassword('abc123');
+      }
+    } catch (error: any) {
+      console.error('Error creating test user:', error);
+      toast.error(error.message || 'Error creating test user');
+    } finally {
+      setIsCreatingTestUser(false);
     }
   };
   
@@ -103,6 +127,20 @@ const Login: React.FC = () => {
               <div className="bg-gray-100 p-2 rounded mt-1">
                 <p>Email: admin@example.com</p>
                 <p>Password: abc123</p>
+              </div>
+              
+              <div className="mt-3">
+                <Button 
+                  variant="outline" 
+                  className="w-full" 
+                  onClick={createTestUser}
+                  disabled={isCreatingTestUser}
+                >
+                  {isCreatingTestUser ? 'Creating Test User...' : 'Create Test User'}
+                </Button>
+                <p className="text-xs text-gray-500 mt-1">
+                  Click this button if you can't log in with the test credentials above
+                </p>
               </div>
             </div>
           </CardContent>
