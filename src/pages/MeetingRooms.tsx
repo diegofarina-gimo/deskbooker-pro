@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useBooking } from '@/contexts/BookingContext';
 import { AppHeader } from '@/components/AppHeader';
@@ -22,6 +23,7 @@ const MeetingRooms = () => {
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   
   const meetingRooms = desks.filter(desk => desk.type === 'meeting_room');
+  console.log("Meeting rooms in MeetingRooms.tsx:", meetingRooms);
   
   const filteredRooms = selectedMap 
     ? meetingRooms.filter(room => room.mapId === selectedMap)

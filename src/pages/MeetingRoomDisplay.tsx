@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useBooking } from '@/contexts/BookingContext';
 import { format, addMinutes } from 'date-fns';
 import { Button } from '@/components/ui/button';
@@ -8,15 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CalendarIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { BookingForm } from '@/components/BookingForm';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
 import { toast } from 'sonner';
-import { Link } from 'react-router-dom';
 
 const MeetingRoomDisplay = () => {
   const { roomId } = useParams<{ roomId: string }>();
@@ -32,18 +24,37 @@ const MeetingRoomDisplay = () => {
   } = useBooking();
   
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
-  const [selectedDuration, setSelectedDuration] = useState('30');
   const [currentStatus, setCurrentStatus] = useState<'available' | 'occupied'>('available');
   const [currentBookingId, setCurrentBookingId] = useState<string | null>(null);
   
+  console.log("Available desks:", desks);
+  console.log("Looking for room ID:", roomId);
+  console.log("Meeting rooms:", desks.filter(d => d.type === 'meeting_room'));
+  
   const room = desks.find(desk => desk.id === roomId);
   
-  if (!room || room.type !== 'meeting_room') {
+  if (!room) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
           <h1 className="text-3xl font-bold mb-2">Room Not Found</h1>
           <p className="text-gray-600">The meeting room you're looking for doesn't exist.</p>
+          <p className="mt-4">
+            <Link to="/meeting-rooms" className="text-blue-600 hover:underline">
+              View All Meeting Rooms
+            </Link>
+          </p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (room.type !== 'meeting_room') {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold mb-2">Invalid Resource</h1>
+          <p className="text-gray-600">This resource is not a meeting room.</p>
           <p className="mt-4">
             <Link to="/meeting-rooms" className="text-blue-600 hover:underline">
               View All Meeting Rooms
