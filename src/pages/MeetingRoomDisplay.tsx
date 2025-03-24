@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useBooking } from '@/contexts/BookingContext';
@@ -21,7 +22,8 @@ const MeetingRoomDisplay = () => {
     currentUser, 
     selectedDate, 
     setSelectedDate,
-    cancelBooking
+    cancelBooking,
+    addBooking
   } = useBooking();
   
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
@@ -195,7 +197,7 @@ const MeetingRoomDisplay = () => {
     }
   };
 
-  // Updated handleQuickBook to start from current time
+  // Updated handleQuickBook to immediately book without showing a form
   const handleQuickBook = (durationMinutes: number) => {
     if (!currentUser) {
       toast.error("You must be logged in to book a room");
@@ -204,15 +206,7 @@ const MeetingRoomDisplay = () => {
     
     // Always use the current time as the start time for quick bookings
     const realNow = new Date();
-    let startTime: string;
-    
-    if (isToday) {
-      // For today, use the actual current time
-      startTime = `${String(realNow.getHours()).padStart(2, '0')}:${String(realNow.getMinutes()).padStart(2, '0')}`;
-    } else {
-      // For future days, start at 9 AM
-      startTime = "09:00";
-    }
+    const startTime = `${String(realNow.getHours()).padStart(2, '0')}:${String(realNow.getMinutes()).padStart(2, '0')}`;
     
     // Calculate end time based on the duration from the start time
     const startDate = new Date();
@@ -222,12 +216,25 @@ const MeetingRoomDisplay = () => {
     const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
     const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
     
-    setCustomTimeSlot({
+    const timeSlot = {
       startTime,
       endTime
+    };
+    
+    // Directly book the room without showing the form
+    const success = addBooking({
+      deskId: roomId || '',
+      userId: currentUser.id,
+      date: format(selectedDate, 'yyyy-MM-dd'),
+      isRecurring: false,
+      timeSlot
     });
     
-    setIsBookingDialogOpen(true);
+    if (success) {
+      toast.success(`Room booked successfully from ${startTime} to ${endTime}`);
+    } else {
+      toast.error("This time slot is not available. Please try a different time.");
+    }
   };
   
   return (
@@ -352,57 +359,53 @@ const MeetingRoomDisplay = () => {
               </CardContent>
             </Card>
             
-            {currentStatus === 'available' && (
+            {currentStatus === 'available' && isToday && (
               <Card className="shadow-md overflow-hidden bg-gradient-to-br from-white to-gray-50">
                 <CardHeader className="pb-3 border-b">
                   <CardTitle className="flex items-center gap-2">
                     <Bookmark className="h-5 w-5 text-green-500" />
-                    {isToday ? "Quick Book" : "Book Room"}
+                    Quick Book
                   </CardTitle>
                   <CardDescription>
-                    {isToday 
-                      ? "Need the room right now? Book it quickly!"
-                      : "Book this room for a future date"}
+                    Need the room right now? Book it quickly!
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  {isToday && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                      <Button 
-                        onClick={() => handleQuickBook(15)}
-                        className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
-                      >
-                        15 min
-                      </Button>
-                      <Button 
-                        onClick={() => handleQuickBook(30)}
-                        className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
-                      >
-                        30 min
-                      </Button>
-                      <Button 
-                        onClick={() => handleQuickBook(60)}
-                        className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
-                      >
-                        1 hour
-                      </Button>
-                      <Button 
-                        onClick={() => handleQuickBook(120)}
-                        className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
-                      >
-                        2 hours
-                      </Button>
-                    </div>
-                  )}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    <Button 
+                      onClick={() => handleQuickBook(15)}
+                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                    >
+                      15 min
+                    </Button>
+                    <Button 
+                      onClick={() => handleQuickBook(30)}
+                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                    >
+                      30 min
+                    </Button>
+                    <Button 
+                      onClick={() => handleQuickBook(60)}
+                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                    >
+                      1 hour
+                    </Button>
+                    <Button 
+                      onClick={() => handleQuickBook(120)}
+                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                    >
+                      2 hours
+                    </Button>
+                  </div>
                   
                   <div className="mt-4">
-                    <Dialog open={isBookingDialogOpen} onOpenChange={setIsBookingDialogOpen}>
+                    <Dialog>
                       <DialogTrigger asChild>
                         <Button 
                           variant="outline" 
                           className="w-full bg-white"
                         >
-                          {isToday ? "Custom Booking" : "Book This Room"}
+                          Custom Booking
                         </Button>
                       </DialogTrigger>
                       <DialogContent>
@@ -418,6 +421,39 @@ const MeetingRoomDisplay = () => {
                       </DialogContent>
                     </Dialog>
                   </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {(currentStatus === 'available' && !isToday) && (
+              <Card className="shadow-md overflow-hidden bg-gradient-to-br from-white to-gray-50">
+                <CardHeader className="pb-3 border-b">
+                  <CardTitle className="flex items-center gap-2">
+                    <Bookmark className="h-5 w-5 text-blue-500" />
+                    Book This Room
+                  </CardTitle>
+                  <CardDescription>
+                    Plan ahead and reserve this room
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button className="w-full">
+                        Book for {format(selectedDate, 'PPP')}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Book {room.name}</DialogTitle>
+                      </DialogHeader>
+                      <BookingForm 
+                        deskId={room.id} 
+                        date={selectedDate} 
+                        status="available"
+                      />
+                    </DialogContent>
+                  </Dialog>
                 </CardContent>
               </Card>
             )}
