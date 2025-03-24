@@ -56,14 +56,14 @@ const MeetingRooms = () => {
             </Popover>
             
             <Select 
-              value={selectedMap || ''} 
-              onValueChange={(value) => setSelectedMap(value)}
+              value={selectedMap || 'all'} 
+              onValueChange={(value) => setSelectedMap(value === 'all' ? '' : value)}
             >
               <SelectTrigger className="w-full sm:w-40">
                 <SelectValue placeholder="All floors" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All floors</SelectItem>
+                <SelectItem value="all">All floors</SelectItem>
                 {maps.map((map) => (
                   <SelectItem key={map.id} value={map.id}>
                     {map.name}
