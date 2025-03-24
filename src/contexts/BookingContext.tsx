@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 // Types
@@ -35,6 +36,14 @@ export interface Desk {
   mapId: string;
 }
 
+export interface FloorMap {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  background?: string;
+}
+
 export interface Booking {
   id: string;
   deskId: string;
@@ -48,9 +57,9 @@ interface BookingContextType {
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
   
-  maps: Map[];
-  addMap: (map: Omit<Map, 'id'>) => void;
-  updateMap: (map: Map) => void;
+  maps: FloorMap[];
+  addMap: (map: Omit<FloorMap, 'id'>) => void;
+  updateMap: (map: FloorMap) => void;
   deleteMap: (id: string) => void;
   
   desks: Desk[];
@@ -136,7 +145,7 @@ const sampleTeams: Team[] = [
   }
 ];
 
-const sampleMaps: Map[] = [
+const sampleMaps: FloorMap[] = [
   {
     id: '1',
     name: 'Main Office',
@@ -218,7 +227,7 @@ const BookingContext = createContext<BookingContextType | undefined>(undefined);
 
 export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [maps, setMaps] = useState<Map[]>(sampleMaps);
+  const [maps, setMaps] = useState<FloorMap[]>(sampleMaps);
   const [desks, setDesks] = useState<Desk[]>(sampleDesks);
   const [users, setUsers] = useState<User[]>(sampleUsers);
   const [bookings, setBookings] = useState<Booking[]>(sampleBookings);
@@ -231,12 +240,12 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setCurrentUser(sampleUsers[0]);
   }, []);
 
-  const addMap = (map: Omit<Map, 'id'>) => {
+  const addMap = (map: Omit<FloorMap, 'id'>) => {
     const newMap = { ...map, id: crypto.randomUUID() };
     setMaps([...maps, newMap]);
   };
 
-  const updateMap = (map: Map) => {
+  const updateMap = (map: FloorMap) => {
     setMaps(maps.map(m => m.id === map.id ? map : m));
   };
 

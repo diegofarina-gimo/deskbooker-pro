@@ -29,15 +29,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { 
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { toast } from "sonner";
-import { Plus, UserCog, User as UserIcon, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Plus, UserCog, User as UserIcon, Trash2, Eye, EyeOff, Users } from 'lucide-react';
 
 export const UserManagement: React.FC = () => {
-  const { users, addUser, updateUser, deleteUser, currentUser } = useBooking();
+  const { users, teams, addUser, updateUser, deleteUser, currentUser } = useBooking();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [isTeamPopoverOpen, setIsTeamPopoverOpen] = useState<{[key: string]: boolean}>({});
   const [newUser, setNewUser] = useState<Omit<User, 'id'>>({
     name: '',
     email: '',
@@ -104,6 +110,26 @@ export const UserManagement: React.FC = () => {
     
     deleteUser(id);
     toast.success(`User has been removed.`);
+  };
+  
+  const handleAssignTeam = (userId: string, teamId: string | undefined) => {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
+    
+    const teamName = teamId ? teams.find(t => t.id === teamId)?.name : 'no team';
+    
+    updateUser({
+      ...user,
+      teamId
+    });
+    
+    // Close the popover
+    setIsTeamPopoverOpen({
+      ...isTeamPopoverOpen,
+      [userId]: false
+    });
+    
+    toast.success(`User ${user.name} has been assigned to ${teamName}.`);
   };
   
   return (
@@ -214,6 +240,36 @@ export const UserManagement: React.FC = () => {
                   </Select>
                 </div>
               </div>
+              
+              {/* Team selection during user creation/edit */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="team" className="text-right">
+                  Team
+                </Label>
+                <div className="col-span-3">
+                  <Select 
+                    value={newUser.teamId || ""} 
+                    onValueChange={(value) => setNewUser({...newUser, teamId: value || undefined})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select team (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">No Team</SelectItem>
+                      {teams.map(team => (
+                        <SelectItem key={team.id} value={team.id}>
+                          <div className="flex items-center">
+                            <div 
+                              className="w-3 h-3 rounded-full mr-2" 
+                              style={{ backgroundColor: team.color || '#888' }} 
+                            />
+                            {team.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
             
             <DialogFooter>
@@ -269,6 +325,65 @@ export const UserManagement: React.FC = () => {
                     : 'Can book and manage own reservations'
                   }
                 </span>
+              </div>
+              
+              {/* Team information display */}
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Team:</span>
+                  
+                  <Popover 
+                    open={isTeamPopoverOpen[user.id]} 
+                    onOpenChange={(open) => setIsTeamPopoverOpen({...isTeamPopoverOpen, [user.id]: open})}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-8 text-xs">
+                        <div className="flex items-center gap-1">
+                          {user.teamId ? (
+                            <>
+                              <div 
+                                className="w-2 h-2 rounded-full" 
+                                style={{ 
+                                  backgroundColor: teams.find(t => t.id === user.teamId)?.color || '#888' 
+                                }} 
+                              />
+                              {teams.find(t => t.id === user.teamId)?.name || 'Unknown Team'}
+                            </>
+                          ) : (
+                            <span className="text-gray-500">No Team</span>
+                          )}
+                          <Users className="ml-1 h-3 w-3" />
+                        </div>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-56 p-2">
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium mb-2">Assign to team:</p>
+                        
+                        <div 
+                          className="flex items-center p-2 rounded hover:bg-gray-100 cursor-pointer"
+                          onClick={() => handleAssignTeam(user.id, undefined)}
+                        >
+                          <span className="text-gray-600">No Team</span>
+                        </div>
+                        
+                        {teams.map(team => (
+                          <div 
+                            key={team.id}
+                            className="flex items-center p-2 rounded hover:bg-gray-100 cursor-pointer"
+                            onClick={() => handleAssignTeam(user.id, team.id)}
+                          >
+                            <div 
+                              className="w-3 h-3 rounded-full mr-2" 
+                              style={{ backgroundColor: team.color || '#888' }} 
+                            />
+                            <span>{team.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
             </CardContent>
             <CardFooter className="flex justify-between">

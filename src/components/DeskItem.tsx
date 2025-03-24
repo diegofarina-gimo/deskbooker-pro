@@ -88,6 +88,7 @@ export const DeskItem: React.FC<DeskItemProps> = ({
         width: `${dotSize}px`,
         height: `${dotSize}px`,
         zIndex: 10, // Ensure dots are above the map background
+        transform: 'translate(-50%, -50%)', // Center the dot on the exact coordinates
       }}
       draggable={isEditing}
       onDragStart={handleDragStart}
