@@ -113,11 +113,12 @@ export const BookingOverview: React.FC = () => {
                 
                 <div className="mt-4">
                   <p className="text-sm font-medium mb-2">Selected Floor Map</p>
-                  <Select value={selectedMap || ''} onValueChange={setSelectedMap}>
+                  <Select value={selectedMap || 'none'} onValueChange={(val) => setSelectedMap(val === 'none' ? null : val)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a map" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="none">No Map Selected</SelectItem>
                       {maps.map(map => (
                         <SelectItem key={map.id} value={map.id}>
                           {map.name}
@@ -195,11 +196,12 @@ export const BookingOverview: React.FC = () => {
                 
                 {viewMode === 'team' && availableTeams.length > 0 && (
                   <div className="px-6 -mt-2 mb-4">
-                    <Select value={selectedTeam || ''} onValueChange={setSelectedTeam}>
+                    <Select value={selectedTeam || 'none'} onValueChange={(val) => setSelectedTeam(val === 'none' ? null : val)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a team" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="none">No Team Selected</SelectItem>
                         {availableTeams.map(team => (
                           <SelectItem key={team.id} value={team.id}>
                             {team.name}
@@ -307,11 +309,12 @@ export const BookingOverview: React.FC = () => {
             
             {viewMode === 'team' && availableTeams.length > 0 && (
               <div className="px-6 -mt-2 mb-4">
-                <Select value={selectedTeam || ''} onValueChange={setSelectedTeam}>
+                <Select value={selectedTeam || 'none'} onValueChange={(val) => setSelectedTeam(val === 'none' ? null : val)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a team" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="none">No Team Selected</SelectItem>
                     {availableTeams.map(team => (
                       <SelectItem key={team.id} value={team.id}>
                         {team.name}

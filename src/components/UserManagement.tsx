@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useBooking, User } from '@/contexts/BookingContext';
 import { 
@@ -102,7 +101,6 @@ export const UserManagement: React.FC = () => {
   };
   
   const handleDeleteUser = (id: string) => {
-    // Don't allow deletion of current user
     if (id === currentUser?.id) {
       toast.error("You cannot delete your own account.");
       return;
@@ -123,7 +121,6 @@ export const UserManagement: React.FC = () => {
       teamId
     });
     
-    // Close the popover
     setIsTeamPopoverOpen({
       ...isTeamPopoverOpen,
       [userId]: false
@@ -241,20 +238,19 @@ export const UserManagement: React.FC = () => {
                 </div>
               </div>
               
-              {/* Team selection during user creation/edit */}
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="team" className="text-right">
                   Team
                 </Label>
                 <div className="col-span-3">
                   <Select 
-                    value={newUser.teamId || ""} 
-                    onValueChange={(value) => setNewUser({...newUser, teamId: value || undefined})}>
+                    value={newUser.teamId || "none"} 
+                    onValueChange={(value) => setNewUser({...newUser, teamId: value === "none" ? undefined : value})}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select team (optional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No Team</SelectItem>
+                      <SelectItem value="none">No Team</SelectItem>
                       {teams.map(team => (
                         <SelectItem key={team.id} value={team.id}>
                           <div className="flex items-center">
@@ -327,7 +323,6 @@ export const UserManagement: React.FC = () => {
                 </span>
               </div>
               
-              {/* Team information display */}
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">Team:</span>
