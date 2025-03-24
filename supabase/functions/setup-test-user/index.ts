@@ -24,10 +24,14 @@ serve(async (req) => {
     const testUserPassword = "abc123";
 
     // Check if the test user already exists
-    const { data: existingUsers } = await supabaseAdmin
+    const { data: existingUsers, error: userCheckError } = await supabaseAdmin
       .from("profiles")
       .select("*")
       .eq("email", testUserEmail);
+
+    if (userCheckError) {
+      console.error("Error checking for existing user:", userCheckError);
+    }
 
     if (existingUsers && existingUsers.length > 0) {
       return new Response(
@@ -47,14 +51,21 @@ serve(async (req) => {
       user_metadata: { name: "Test Admin" },
     });
 
-    if (createError) throw createError;
+    if (createError) {
+      console.error("Error creating test user:", createError);
+      throw createError;
+    }
 
     // Make sure the user has admin role
     if (user) {
-      await supabaseAdmin
+      const { error: updateError } = await supabaseAdmin
         .from("profiles")
         .update({ role: "admin" })
         .eq("id", user.user.id);
+      
+      if (updateError) {
+        console.error("Error updating user role:", updateError);
+      }
     }
 
     return new Response(
@@ -68,6 +79,7 @@ serve(async (req) => {
       }
     );
   } catch (error) {
+    console.error("Error in setup-test-user function:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {

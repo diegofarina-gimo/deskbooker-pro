@@ -4,7 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { BookingProvider, useBooking } from './contexts/BookingContext';
 import Dashboard from './pages/Dashboard';
 import Index from './pages/Index';
-import Login from './pages/Login';
+import { Login } from './pages/Login';
 import NotFound from './pages/NotFound';
 import Maps from './pages/Maps';
 import Users from './pages/Users';

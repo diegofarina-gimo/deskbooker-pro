@@ -1,14 +1,13 @@
-
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import { useBooking } from '@/contexts/BookingContext';
-import Login from './Login';
+import { Login } from './Login';
 
 const Index = () => {
   const { currentUser } = useBooking();
   const navigate = useNavigate();
   
-  // If user is already logged in, redirect to dashboard
   useEffect(() => {
     if (currentUser) {
       navigate('/dashboard');
