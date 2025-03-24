@@ -25,9 +25,15 @@ interface BookingFormProps {
   deskId: string;
   date: Date;
   status: 'available' | 'booked';
+  preselectedTimeSlot?: TimeSlot;
 }
 
-export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }) => {
+export const BookingForm: React.FC<BookingFormProps> = ({ 
+  deskId, 
+  date, 
+  status,
+  preselectedTimeSlot
+}) => {
   const { 
     addBooking, 
     cancelBooking, 
@@ -44,8 +50,8 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurringDays, setRecurringDays] = useState<string[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>(currentUser?.id || '');
-  const [startTime, setStartTime] = useState<string>("09:00");
-  const [endTime, setEndTime] = useState<string>("10:00");
+  const [startTime, setStartTime] = useState<string>(preselectedTimeSlot?.startTime || "09:00");
+  const [endTime, setEndTime] = useState<string>(preselectedTimeSlot?.endTime || "10:00");
   const [bookingsForDay, setBookingsForDay] = useState<any[]>([]);
   
   const desk = getDeskById(deskId);
