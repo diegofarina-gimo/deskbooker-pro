@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBooking } from '@/contexts/BookingContext';
 import { AppHeader } from '@/components/AppHeader';
@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const Dashboard = () => {
-  const { currentUser, selectedMap, maps } = useBooking();
+  const { currentUser, selectedMap, maps, selectedDate } = useBooking();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   
@@ -60,7 +60,7 @@ const Dashboard = () => {
                   <h2 className="text-xl font-semibold mb-4">
                     {maps.find(m => m.id === selectedMap)?.name || 'Office Map'}
                   </h2>
-                  <FloorMap mapId={selectedMap} date={new Date()} showBookingDetails={true} />
+                  <FloorMap mapId={selectedMap} date={selectedDate} showBookingDetails={true} />
                 </div>
               ) : (
                 <div className="text-center py-10">

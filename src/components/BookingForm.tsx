@@ -13,6 +13,13 @@ import { CalendarIcon, CheckIcon, XIcon } from 'lucide-react';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 
 interface BookingFormProps {
   deskId: string;
@@ -27,14 +34,17 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
     currentUser, 
     bookings,
     getDeskById,
-    getUserById
+    getUserById,
+    users
   } = useBooking();
   
   const [selectedDate, setSelectedDate] = useState<Date>(date);
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurringDays, setRecurringDays] = useState<string[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string>(currentUser?.id || '');
   
   const desk = getDeskById(deskId);
+  const isAdmin = currentUser?.role === 'admin';
   
   // Find if there's a booking for this desk on the selected date
   const existingBooking = bookings.find(
@@ -43,20 +53,27 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
   
   const bookedBy = existingBooking ? getUserById(existingBooking.userId) : null;
   const isMyBooking = existingBooking && existingBooking.userId === currentUser?.id;
-  const isAdmin = currentUser?.role === 'admin';
   
   const handleBook = () => {
     if (!currentUser) return;
     
+    // Determine which user to book for
+    const bookForUserId = isAdmin && selectedUserId ? selectedUserId : currentUser.id;
+    const bookForUser = getUserById(bookForUserId);
+    
     addBooking({
       deskId,
-      userId: currentUser.id,
+      userId: bookForUserId,
       date: format(selectedDate, 'yyyy-MM-dd'),
       isRecurring,
       recurringDays: isRecurring ? recurringDays : undefined,
     });
     
-    toast.success(`You've successfully booked ${desk?.name} for ${format(selectedDate, 'PPPP')}`);
+    const bookingMessage = isAdmin && bookForUser && bookForUser.id !== currentUser.id 
+      ? `You've successfully booked ${desk?.name} for ${bookForUser.name} on ${format(selectedDate, 'PPPP')}`
+      : `You've successfully booked ${desk?.name} for ${format(selectedDate, 'PPPP')}`;
+    
+    toast.success(bookingMessage);
   };
   
   const handleCancel = () => {
@@ -85,8 +102,8 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
   return (
     <div className="p-4 space-y-4 animate-fadeIn">
       {status === 'booked' ? (
-        <div className="bg-booked/30 p-4 rounded-md">
-          <h3 className="font-medium text-bookedText">Currently Booked</h3>
+        <div className="bg-blue-50 p-4 rounded-md">
+          <h3 className="font-medium text-blue-800">Currently Booked</h3>
           {bookedBy && (
             <p className="text-sm mt-2">
               Booked by: {bookedBy.name}
@@ -130,6 +147,33 @@ export const BookingForm: React.FC<BookingFormProps> = ({ deskId, date, status }
               </PopoverContent>
             </Popover>
           </div>
+          
+          {isAdmin && (
+            <div>
+              <Label htmlFor="book-for-user">Book for User</Label>
+              <Select
+                value={selectedUserId}
+                onValueChange={setSelectedUserId}
+              >
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Select user" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={currentUser?.id || ""}>
+                    {currentUser?.name || "Yourself"} (You)
+                  </SelectItem>
+                  {users
+                    .filter(user => user.id !== currentUser?.id)
+                    .map(user => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.name}
+                      </SelectItem>
+                    ))
+                  }
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           
           <div className="flex items-center space-x-2">
             <Checkbox 

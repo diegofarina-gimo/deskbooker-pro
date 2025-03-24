@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useBooking, Desk } from '@/contexts/BookingContext';
+import { useBooking, type Desk } from '@/contexts/BookingContext';
 import { Button } from "@/components/ui/button";
 import { DeskItem } from './DeskItem';
 import { 
@@ -14,8 +14,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Move, Grid, Rows, Crosshair } from 'lucide-react';
+import { Plus, Move, Grid, Rows, Crosshair, Calendar as CalendarIcon } from 'lucide-react';
 import { toast } from "sonner";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { format } from "date-fns";
 
 interface FloorMapProps {
   mapId: string;
@@ -26,7 +33,7 @@ interface FloorMapProps {
 
 export const FloorMap: React.FC<FloorMapProps> = ({ 
   mapId, 
-  date,
+  date: initialDate,
   isEditing = false,
   showBookingDetails = false
 }) => {
@@ -38,7 +45,9 @@ export const FloorMap: React.FC<FloorMapProps> = ({
     deleteDesk,
     getDeskStatus,
     getUserById,
-    getBookingByDeskAndDate 
+    getBookingByDeskAndDate,
+    selectedDate: contextDate,
+    setSelectedDate: setContextDate
   } = useBooking();
   
   const mapRef = useRef<HTMLDivElement>(null);
@@ -47,6 +56,7 @@ export const FloorMap: React.FC<FloorMapProps> = ({
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [selectedDate, setSelectedDate] = useState<Date>(initialDate);
   const [newDesk, setNewDesk] = useState<Omit<Desk, 'id'>>({
     name: '',
     x: 0,
@@ -62,6 +72,20 @@ export const FloorMap: React.FC<FloorMapProps> = ({
   const [generateCount, setGenerateCount] = useState(5);
   const [rowCount, setRowCount] = useState(1);
   const [showGrid, setShowGrid] = useState(isEditing);
+  
+  // Sync selected date with context date when necessary
+  useEffect(() => {
+    if (!isEditing) {
+      setSelectedDate(contextDate);
+    }
+  }, [contextDate, isEditing]);
+
+  // Update context date when selected date changes
+  useEffect(() => {
+    if (!isEditing) {
+      setContextDate(selectedDate);
+    }
+  }, [selectedDate, setContextDate, isEditing]);
   
   const currentMap = maps.find(m => m.id === mapId);
   if (!currentMap) return <div>Map not found</div>;
@@ -241,8 +265,15 @@ export const FloorMap: React.FC<FloorMapProps> = ({
     setTranslate({ x: 0, y: 0 });
   };
   
+  // Fixed: Check if clicking on an existing desk before adding a new one
   const handleMapClick = (e: React.MouseEvent) => {
     if (!isEditing || !mapRef.current) return;
+    
+    // Check if clicked on an existing desk (don't add new desk in that case)
+    const target = e.target as Element;
+    if (target.closest('.desk')) {
+      return; // Don't add a new desk if clicking on an existing one
+    }
     
     const rect = mapRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) / scale - translate.x / scale;
@@ -270,6 +301,30 @@ export const FloorMap: React.FC<FloorMapProps> = ({
   
   return (
     <div className="relative h-full">
+      {!isEditing && (
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex-1">
+            <h3 className="text-lg font-medium">Office Map for</h3>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="mt-1">
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {format(selectedDate, 'PPP')}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => date && setSelectedDate(date)}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
+      )}
+      
       <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
         <Button variant="outline" size="icon" onClick={() => handleZoom(1.1)}>
           <Plus size={18} />
@@ -598,7 +653,7 @@ export const FloorMap: React.FC<FloorMapProps> = ({
               <DeskItem 
                 key={desk.id} 
                 desk={desk} 
-                date={date} 
+                date={selectedDate} 
                 isEditing={isEditing}
                 showBookingDetails={showBookingDetails}
                 onEdit={handleEditDesk}
