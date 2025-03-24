@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { useBooking, Map } from '@/contexts/BookingContext';
+import { useBooking, FloorMap as FloorMapType } from '@/contexts/BookingContext';
 import { 
   Dialog,
   DialogContent,
@@ -30,8 +29,8 @@ export const MapManagement: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditMapOpen, setIsEditMapOpen] = useState(false);
   const [editingMapId, setEditingMapId] = useState<string | null>(null);
-  const [editingMap, setEditingMap] = useState<Map | null>(null);
-  const [newMap, setNewMap] = useState<Omit<Map, 'id'>>({
+  const [editingMap, setEditingMap] = useState<FloorMapType | null>(null);
+  const [newMap, setNewMap] = useState<Omit<FloorMapType, 'id'>>({
     name: '',
     width: 800,
     height: 600,
@@ -48,7 +47,7 @@ export const MapManagement: React.FC = () => {
     toast.success(`Map ${newMap.name} has been added.`);
   };
   
-  const handleEditMap = (map: Map) => {
+  const handleEditMap = (map: FloorMapType) => {
     setEditingMap(map);
     setNewMap(map);
     setIsDialogOpen(true);

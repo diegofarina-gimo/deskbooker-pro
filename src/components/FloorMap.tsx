@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { useBooking, Desk, FloorMap } from '@/contexts/BookingContext';
+import { useBooking, Desk } from '@/contexts/BookingContext';
 import { Button } from "@/components/ui/button";
 import { DeskItem } from './DeskItem';
 import { 

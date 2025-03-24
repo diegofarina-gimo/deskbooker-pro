@@ -21,9 +21,6 @@ export function CustomToaster() {
           background: '#3b82f6',
           color: 'white',
         },
-        descriptionStyle: {
-          color: '#6b7280',
-        },
       }}
     />
   );
