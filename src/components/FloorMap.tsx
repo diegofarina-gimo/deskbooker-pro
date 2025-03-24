@@ -69,8 +69,8 @@ export const FloorMap: React.FC<FloorMapProps> = ({
     name: '',
     x: 0,
     y: 0,
-    width: 80,
-    height: 50,
+    width: 40,
+    height: 25,
     status: 'available',
     mapId: mapId,
     type: 'desk',
@@ -82,7 +82,7 @@ export const FloorMap: React.FC<FloorMapProps> = ({
   const [generateCount, setGenerateCount] = useState(5);
   const [rowCount, setRowCount] = useState(1);
   const [showGrid, setShowGrid] = useState(isEditing);
-  
+
   useEffect(() => {
     if (!isEditing) {
       setSelectedDate(contextDate);
@@ -118,7 +118,9 @@ export const FloorMap: React.FC<FloorMapProps> = ({
       setNewDesk(prev => ({
         ...prev,
         name: `Desk ${getNextDeskNumber()}`,
-        type: 'desk'
+        type: 'desk',
+        width: 40,
+        height: 25
       }));
     }
   }, [isDialogOpen, editingDesk]);
@@ -129,7 +131,9 @@ export const FloorMap: React.FC<FloorMapProps> = ({
         ...prev,
         name: `Meeting Room ${getNextDeskNumber('Meeting Room')}`,
         type: 'meeting_room',
-        capacity: 4
+        capacity: 4,
+        width: 40,
+        height: 25
       }));
     }
   }, [isResourceDialogOpen]);
@@ -142,15 +146,17 @@ export const FloorMap: React.FC<FloorMapProps> = ({
 
     addDesk({
       ...newDesk,
-      name: newDesk.name || defaultName
+      name: newDesk.name || defaultName,
+      width: newDesk.width || 40,
+      height: newDesk.height || 25
     });
     
     setNewDesk({
       name: '',
       x: 0,
       y: 0,
-      width: 80,
-      height: 50,
+      width: 40,
+      height: 25,
       status: 'available',
       mapId: mapId,
       type: 'desk',
@@ -179,8 +185,8 @@ export const FloorMap: React.FC<FloorMapProps> = ({
       name: '',
       x: 0,
       y: 0,
-      width: 80,
-      height: 50,
+      width: 40,
+      height: 25,
       status: 'available',
       mapId: mapId,
       type: 'desk',
@@ -210,8 +216,8 @@ export const FloorMap: React.FC<FloorMapProps> = ({
           name: `Desk ${getNextDeskNumber() + deskIndex}`,
           x: startX + (i * spacingX),
           y: startY + (r * spacingY),
-          width: 80,
-          height: 50,
+          width: 40,
+          height: 25,
           status: 'available',
           mapId: mapId,
           type: 'desk',
@@ -533,8 +539,8 @@ export const FloorMap: React.FC<FloorMapProps> = ({
                     name: `Meeting Room ${getNextDeskNumber('Meeting Room')}`,
                     x: Math.floor(currentMap.width / 2 - 40),
                     y: Math.floor(currentMap.height / 2 - 25),
-                    width: 80,
-                    height: 50,
+                    width: 40,
+                    height: 25,
                     status: 'available',
                     mapId: mapId,
                     type: 'meeting_room',
@@ -614,7 +620,6 @@ export const FloorMap: React.FC<FloorMapProps> = ({
                 <Button
                   type="submit"
                   onClick={handleAddDesk}
-                  className="bg-blue-500 hover:bg-blue-600"
                 >
                   Add Meeting Room
                 </Button>
@@ -632,8 +637,8 @@ export const FloorMap: React.FC<FloorMapProps> = ({
                     name: `Desk ${getNextDeskNumber()}`,
                     x: Math.floor(currentMap.width / 2 - 40),
                     y: Math.floor(currentMap.height / 2 - 25),
-                    width: 80,
-                    height: 50,
+                    width: 40,
+                    height: 25,
                     status: 'available',
                     mapId: mapId,
                     type: 'desk'

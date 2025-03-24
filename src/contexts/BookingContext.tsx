@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 // Types
@@ -66,6 +67,9 @@ interface BookingContextType {
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
   
+  systemLogo: string | null;
+  updateSystemLogo: (url: string) => void;
+  
   maps: FloorMap[];
   addMap: (map: Omit<FloorMap, 'id'>) => void;
   updateMap: (map: FloorMap) => void;
@@ -99,6 +103,7 @@ interface BookingContextType {
   setSelectedMap: (id: string | null) => void;
   
   isDeskAvailable: (deskId: string, date: Date, timeSlot?: TimeSlot) => boolean;
+  isMeetingRoomAvailableAtTime: (deskId: string, date: Date, timeSlot: TimeSlot) => boolean;
   getDeskStatus: (deskId: string, date: Date) => DeskStatus;
   getDeskById: (id: string) => Desk | undefined;
   getUserById: (id: string) => User | undefined;
@@ -177,8 +182,8 @@ const sampleDesks: Desk[] = [
     name: 'Desk A1',
     x: 100,
     y: 100,
-    width: 80,
-    height: 50,
+    width: 40, // Updated size
+    height: 25, // Updated size
     status: 'available',
     mapId: '1',
     type: 'desk',
@@ -188,8 +193,8 @@ const sampleDesks: Desk[] = [
     name: 'Desk A2',
     x: 200,
     y: 100,
-    width: 80,
-    height: 50,
+    width: 40, // Updated size
+    height: 25, // Updated size
     status: 'available',
     mapId: '1',
     type: 'desk',
@@ -199,8 +204,8 @@ const sampleDesks: Desk[] = [
     name: 'Desk B1',
     x: 100,
     y: 200,
-    width: 80,
-    height: 50,
+    width: 40, // Updated size
+    height: 25, // Updated size
     status: 'maintenance',
     mapId: '1',
     type: 'desk',
@@ -210,8 +215,8 @@ const sampleDesks: Desk[] = [
     name: 'Desk B2',
     x: 200,
     y: 200,
-    width: 80,
-    height: 50,
+    width: 40, // Updated size
+    height: 25, // Updated size
     status: 'available',
     mapId: '1',
     type: 'desk',
@@ -221,8 +226,8 @@ const sampleDesks: Desk[] = [
     name: 'Desk C1',
     x: 400,
     y: 100,
-    width: 80,
-    height: 50,
+    width: 40, // Updated size
+    height: 25, // Updated size
     status: 'available',
     mapId: '1',
     type: 'desk',
@@ -248,6 +253,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [users, setUsers] = useState<User[]>(sampleUsers);
   const [bookings, setBookings] = useState<Booking[]>(sampleBookings);
   const [teams, setTeams] = useState<Team[]>(sampleTeams.map(team => ({...team, leaderId: undefined})));
+  const [systemLogo, setSystemLogo] = useState<string | null>(null);
   
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedMap, setSelectedMap] = useState<string | null>(sampleMaps[0]?.id || null);
@@ -255,6 +261,10 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     setCurrentUser(sampleUsers[0]);
   }, []);
+  
+  const updateSystemLogo = (url: string) => {
+    setSystemLogo(url);
+  };
 
   const addMap = (map: Omit<FloorMap, 'id'>) => {
     const newMap = { ...map, id: crypto.randomUUID() };
@@ -360,7 +370,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
     
     if (desk?.type === 'meeting_room' && booking.timeSlot) {
-      const isAvailable = isDeskAvailable(booking.deskId, new Date(booking.date), booking.timeSlot);
+      const isAvailable = isMeetingRoomAvailableAtTime(booking.deskId, new Date(booking.date), booking.timeSlot);
       if (!isAvailable) return false;
     }
     
@@ -404,6 +414,12 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const desk = desks.find(d => d.id === deskId);
     if (desk?.status === 'maintenance') return false;
     
+    // If it's a meeting room with a time slot, use the specialized checker
+    if (desk?.type === 'meeting_room' && timeSlot) {
+      return isMeetingRoomAvailableAtTime(deskId, date, timeSlot);
+    }
+    
+    // For regular desks, check if there are any bookings
     const deskBookings = bookings.filter(b => 
       b.deskId === deskId && 
       (b.date === dateStr || 
@@ -411,12 +427,27 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       )
     );
     
-    if (desk?.type === 'desk' || !timeSlot) {
-      return deskBookings.length === 0;
-    }
+    return deskBookings.length === 0;
+  };
+  
+  const isMeetingRoomAvailableAtTime = (deskId: string, date: Date, timeSlot: TimeSlot): boolean => {
+    const dateStr = formatDateString(date);
+    const weekday = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
     
+    const desk = desks.find(d => d.id === deskId);
+    if (!desk || desk.status === 'maintenance' || desk.type !== 'meeting_room') return false;
+    
+    const deskBookings = bookings.filter(b => 
+      b.deskId === deskId && 
+      (b.date === dateStr || 
+        (b.isRecurring && b.recurringDays?.includes(weekday))
+      ) && 
+      b.timeSlot
+    );
+    
+    // Check if any existing booking overlaps with the requested time slot
     return !deskBookings.some(booking => {
-      if (!booking.timeSlot) return true;
+      if (!booking.timeSlot) return false;
       
       const bookingStart = timeToMinutes(booking.timeSlot.startTime);
       const bookingEnd = timeToMinutes(booking.timeSlot.endTime);
@@ -436,6 +467,20 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const desk = desks.find(d => d.id === deskId);
     if (desk?.status === 'maintenance') return 'maintenance';
     
+    const dateStr = formatDateString(date);
+    
+    // For meeting rooms, check if there are any bookings for the day
+    // but the status is still considered available since they can be booked
+    // at different times
+    if (desk?.type === 'meeting_room') {
+      const hasBookings = bookings.some(b => 
+        b.deskId === deskId && b.date === dateStr
+      );
+      
+      return hasBookings ? 'booked' : 'available';
+    }
+    
+    // For regular desks
     return isDeskAvailable(deskId, date) ? 'available' : 'booked';
   };
 
@@ -457,6 +502,8 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       value={{
         currentUser,
         setCurrentUser,
+        systemLogo,
+        updateSystemLogo,
         maps,
         addMap,
         updateMap,
@@ -484,6 +531,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         selectedMap,
         setSelectedMap,
         isDeskAvailable,
+        isMeetingRoomAvailableAtTime,
         getDeskStatus,
         getDeskById,
         getUserById,

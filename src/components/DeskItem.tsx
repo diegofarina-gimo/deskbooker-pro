@@ -11,8 +11,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { BookingForm } from './BookingForm';
-import { Wrench, AlertTriangle, User, Users } from 'lucide-react';
+import { Wrench, AlertTriangle, User, Users, Clock } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { format } from 'date-fns';
 
 interface DeskItemProps {
   desk: Desk;
@@ -31,7 +32,7 @@ export const DeskItem: React.FC<DeskItemProps> = ({
   onEdit,
   onDelete
 }) => {
-  const { getDeskStatus, currentUser, getBookingByDeskAndDate, getUserById, getTeamById } = useBooking();
+  const { getDeskStatus, currentUser, getBookingByDeskAndDate, getUserById, getTeamById, bookings } = useBooking();
   const isMobile = useIsMobile();
   
   const status = getDeskStatus(desk.id, date);
@@ -46,10 +47,26 @@ export const DeskItem: React.FC<DeskItemProps> = ({
   let bgColor = 'bg-white';
   let statusText = 'Available';
   let icon = null;
+  
+  // For meeting rooms, check if it's currently booked based on time
+  const now = new Date();
+  const currentTimeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  
+  // Check if today's date matches the selected date
+  const isToday = date.toDateString() === new Date().toDateString();
+  
+  // Check if meeting room is currently in a booked time slot
+  const isCurrentlyBooked = (desk.type === 'meeting_room' && booking?.timeSlot && isToday) ? 
+    (currentTimeString >= booking.timeSlot.startTime && currentTimeString <= booking.timeSlot.endTime) : false;
 
-  const isBookable = status === 'available';
-  const isBooked = status === 'booked';
+  const isBookable = status === 'available' || (desk.type === 'meeting_room' && status === 'booked' && !isCurrentlyBooked);
+  const isBooked = (status === 'booked' && desk.type !== 'meeting_room') || isCurrentlyBooked;
   const isMeetingRoom = desk.type === 'meeting_room';
+
+  // Calculate if the meeting room has multiple bookings for the day
+  const hasMultipleBookings = isMeetingRoom && 
+    bookings.filter(b => b.deskId === desk.id && 
+                    b.date === format(date, 'yyyy-MM-dd')).length > 1;
 
   // For meeting rooms, use blue color theme
   if (isMeetingRoom) {
@@ -58,11 +75,18 @@ export const DeskItem: React.FC<DeskItemProps> = ({
       borderColor = 'border-blue-400';
       textColor = 'text-blue-800';
       statusText = 'Available';
-    } else if (isBooked) {
-      dotColor = '#9F9EA1'; // Grey for booked meeting room
+    } else if (isCurrentlyBooked) {
+      // Gradient gray for booked meeting room
+      dotColor = 'linear-gradient(145deg, #9F9EA1, #C8C8C9)';
       borderColor = 'border-gray-400';
       textColor = 'text-gray-800';
-      statusText = 'Booked';
+      statusText = 'In Use';
+      icon = <Clock className="h-3 w-3" />;
+    } else if (status === 'booked') {
+      dotColor = '#1EAEDB'; // Blue with reduced opacity for booked but not currently in use
+      borderColor = 'border-blue-400';
+      textColor = 'text-blue-800';
+      statusText = 'Has Bookings';
       icon = <Users className="h-3 w-3" />;
     } else {
       dotColor = '#F59E0B'; // Amber/orange for maintenance
@@ -82,7 +106,8 @@ export const DeskItem: React.FC<DeskItemProps> = ({
         statusText = 'Available';
         break;
       case 'booked':
-        dotColor = '#9F9EA1'; // Grey for booked
+        // Gradient gray for booked desks
+        dotColor = 'linear-gradient(145deg, #9F9EA1, #C8C8C9)';
         bgColor = 'bg-gray-50';
         borderColor = 'border-gray-400';
         textColor = 'text-gray-800';
@@ -109,7 +134,9 @@ export const DeskItem: React.FC<DeskItemProps> = ({
   const dotSize = isMobile ? 18 : 24;
   
   // Show booking user info on hover if showBookingDetails is true and desk is booked
-  const shouldShowUserInfo = showBookingDetails && status === 'booked' && bookedUser;
+  const shouldShowUserInfo = showBookingDetails && 
+    ((status === 'booked' && bookedUser) || 
+    (isMeetingRoom && booking && bookedUser));
 
   return (
     <div
@@ -132,8 +159,9 @@ export const DeskItem: React.FC<DeskItemProps> = ({
                        transition-all duration-200 flex items-center justify-center
                        border-2 ${borderColor} relative group`}
             style={{ 
-              backgroundColor: dotColor,
+              background: dotColor,
               transform: `scale(${isEditing ? '1.2' : '1'})`,
+              boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
             }}
           >
             {isEditing && (
@@ -161,6 +189,11 @@ export const DeskItem: React.FC<DeskItemProps> = ({
                 )}
               </div>
             )}
+            
+            {/* Indicator for resources with multiple bookings */}
+            {hasMultipleBookings && !isEditing && (
+              <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+            )}
           </div>
         </DialogTrigger>
         <DialogContent className="sm:max-w-[425px]">
@@ -168,12 +201,14 @@ export const DeskItem: React.FC<DeskItemProps> = ({
             <DialogTitle>{desk.name}</DialogTitle>
             <DialogDescription>
               {isMeetingRoom ? `Meeting room capacity: ${desk.capacity || 4} people` : ''}
-              {status === 'available' 
-                ? `This ${isMeetingRoom ? 'meeting room' : 'desk'} is available for booking.` 
+              {isBookable
+                ? isMeetingRoom 
+                  ? `This meeting room is available for booking.${hasMultipleBookings ? ' There are already some bookings for today.' : ''}`
+                  : 'This desk is available for booking.'
                 : status === 'maintenance'
                 ? `This ${isMeetingRoom ? 'meeting room' : 'desk'} is currently under maintenance.`
                 : bookedUser
-                  ? `This ${isMeetingRoom ? 'meeting room' : 'desk'} is booked by ${bookedUser.name}${userTeam ? ` (${userTeam.name})` : ''}.`
+                  ? `This ${isMeetingRoom ? 'meeting room' : 'desk'} is ${isMeetingRoom && !isCurrentlyBooked ? 'booked later' : 'currently booked'} by ${bookedUser.name}${userTeam ? ` (${userTeam.name})` : ''}.`
                   : `This ${isMeetingRoom ? 'meeting room' : 'desk'} is currently booked.`}
               {booking?.timeSlot && (
                 <div className="mt-1">

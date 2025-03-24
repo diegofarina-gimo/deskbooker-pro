@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useBooking } from '@/contexts/BookingContext';
 import { Button } from '@/components/ui/button';
@@ -12,26 +12,124 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CalendarDays, LayoutDashboard, LogOut, Map, Settings, Users } from 'lucide-react';
+import { 
+  CalendarDays, 
+  LayoutDashboard, 
+  LogOut, 
+  Map, 
+  Settings, 
+  Users, 
+  Upload, 
+  Image,
+  X
+} from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 export const AppHeader: React.FC = () => {
-  const { currentUser, setCurrentUser } = useBooking();
+  const { currentUser, setCurrentUser, updateSystemLogo, systemLogo } = useBooking();
   const navigate = useNavigate();
+  const [isLogoDialogOpen, setIsLogoDialogOpen] = useState(false);
+  const [logoUrl, setLogoUrl] = useState(systemLogo || '');
   
   const handleLogout = () => {
     setCurrentUser(null);
     navigate('/');
   };
   
+  const handleUpdateLogo = () => {
+    updateSystemLogo(logoUrl);
+    setIsLogoDialogOpen(false);
+    toast.success('System logo has been updated');
+  };
+  
   if (!currentUser) return null;
+  
+  const isAdmin = currentUser.role === 'admin';
   
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
         <div className="flex items-center space-x-2">
           <Link to="/dashboard" className="flex items-center">
-            <CalendarDays className="h-5 w-5 text-blue-600 mr-2" />
+            {systemLogo ? (
+              <img src={systemLogo} alt="Logo" className="h-8 mr-2" />
+            ) : (
+              <CalendarDays className="h-5 w-5 text-blue-600 mr-2" />
+            )}
             <span className="font-bold text-xl">DeskBooker Pro</span>
+            
+            {isAdmin && (
+              <Dialog open={isLogoDialogOpen} onOpenChange={setIsLogoDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="ml-2">
+                    <Image className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Update System Logo</DialogTitle>
+                    <DialogDescription>
+                      Enter a URL for your company logo. The logo will be displayed in the header.
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="logo-url" className="text-right">
+                        Logo URL
+                      </Label>
+                      <Input
+                        id="logo-url"
+                        value={logoUrl}
+                        onChange={(e) => setLogoUrl(e.target.value)}
+                        placeholder="https://example.com/logo.png"
+                        className="col-span-3"
+                      />
+                    </div>
+                    
+                    {logoUrl && (
+                      <div className="flex justify-center py-2">
+                        <div className="relative">
+                          <img 
+                            src={logoUrl} 
+                            alt="Logo preview" 
+                            className="max-h-16 object-contain"
+                            onError={(e) => {
+                              e.currentTarget.src = "https://placehold.co/200x80?text=Invalid+Image";
+                            }}
+                          />
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 bg-gray-200"
+                            onClick={() => setLogoUrl('')}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <DialogFooter>
+                    <Button onClick={handleUpdateLogo} disabled={!logoUrl}>
+                      Save Logo
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
           </Link>
         </div>
         
