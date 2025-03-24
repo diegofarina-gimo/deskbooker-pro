@@ -141,6 +141,9 @@ export const DeskItem: React.FC<DeskItemProps> = ({
     ((status === 'booked' && bookedUser) || 
     (isMeetingRoom && booking && bookedUser));
 
+  // Fix: Ensure we only pass "available" or "booked" to BookingForm
+  const bookingFormStatus = desk.status === 'maintenance' ? 'available' : (isCurrentlyBooked ? 'booked' : 'available');
+
   return (
     <div
       className={`absolute desk transition-all duration-200 ${isEditing ? 'cursor-move' : ''}`}
@@ -236,7 +239,7 @@ export const DeskItem: React.FC<DeskItemProps> = ({
             </div>
           ) : (
             desk.status !== 'maintenance' ? (
-              <BookingForm deskId={desk.id} date={date} status={status} />
+              <BookingForm deskId={desk.id} date={date} status={bookingFormStatus} />
             ) : (
               <div className="py-4">
                 <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
@@ -259,3 +262,4 @@ export const DeskItem: React.FC<DeskItemProps> = ({
     </div>
   );
 };
+
