@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useBooking } from '@/contexts/BookingContext';
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format, isSameDay } from 'date-fns';
-import { CalendarIcon, XCircle } from 'lucide-react';
+import { CalendarIcon, XCircle, Users, User } from 'lucide-react';
 import { toast } from "sonner";
 import { 
   Select,
@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export const BookingOverview: React.FC = () => {
   const { 
@@ -32,22 +33,55 @@ export const BookingOverview: React.FC = () => {
     getDeskById,
     maps,
     selectedMap,
-    setSelectedMap
+    setSelectedMap,
+    teams,
+    getUsersByTeamId,
+    getTeamBookings,
+    getUserById
   } = useBooking();
+  
+  const [viewMode, setViewMode] = useState<'my' | 'team'>('my');
+  const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
+  const isMobile = useIsMobile();
   
   if (!currentUser) return null;
   
-  // Filter bookings by selected date and current user (if not admin)
-  const filteredBookings = bookings.filter(booking => {
-    const isMatchingDate = isSameDay(new Date(booking.date), selectedDate);
-    const isCurrentUserBooking = currentUser.role === 'admin' || booking.userId === currentUser.id;
-    return isMatchingDate && isCurrentUserBooking;
-  });
+  // Get user's team if they have one
+  const userTeam = currentUser.teamId ? teams.find(t => t.id === currentUser.teamId) : null;
+  
+  // Filter bookings based on view mode
+  let filteredBookings = bookings;
+  
+  if (viewMode === 'my') {
+    // My bookings
+    filteredBookings = bookings.filter(booking => {
+      const isMatchingDate = isSameDay(new Date(booking.date), selectedDate);
+      const isCurrentUserBooking = currentUser.role === 'admin' || booking.userId === currentUser.id;
+      return isMatchingDate && isCurrentUserBooking;
+    });
+  } else if (viewMode === 'team' && selectedTeam) {
+    // Team bookings
+    filteredBookings = getTeamBookings(selectedTeam, selectedDate);
+  }
   
   const handleCancelBooking = (id: string) => {
     cancelBooking(id);
     toast.success('Booking cancelled successfully');
   };
+  
+  // Get available teams (for admin, all teams; for user, just their team)
+  const availableTeams = currentUser.role === 'admin' 
+    ? teams 
+    : userTeam 
+      ? [userTeam]
+      : [];
+  
+  // Team colors for legend
+  const teamColorsForLegend = teams.filter(team => {
+    if (currentUser.role === 'admin') return true;
+    if (currentUser.teamId === team.id) return true;
+    return false;
+  });
   
   return (
     <div className="p-6 space-y-6">
@@ -92,17 +126,90 @@ export const BookingOverview: React.FC = () => {
                     </SelectContent>
                   </Select>
                 </div>
+                
+                {/* Team color legend */}
+                {teamColorsForLegend.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-sm font-medium mb-2">Team Colors</p>
+                    <div className="flex flex-wrap gap-2">
+                      {teamColorsForLegend.map(team => (
+                        <div key={team.id} className="flex items-center gap-1 text-xs">
+                          <div 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: team.color || '#888888' }}
+                          ></div>
+                          <span>{team.name}</span>
+                        </div>
+                      ))}
+                      <div className="flex items-center gap-1 text-xs">
+                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                        <span>Available</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs">
+                        <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                        <span>Maintenance</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
             
             <div className="md:col-span-2">
               <Card>
-                <CardHeader>
-                  <CardTitle>Your Bookings</CardTitle>
-                  <CardDescription>
-                    {format(selectedDate, 'PPPP')}
-                  </CardDescription>
+                <CardHeader className="flex-row justify-between items-start space-y-0">
+                  <div>
+                    <CardTitle>Bookings</CardTitle>
+                    <CardDescription>
+                      {format(selectedDate, 'PPPP')}
+                    </CardDescription>
+                  </div>
+                  {(availableTeams.length > 0 || currentUser.role === 'admin') && (
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        size="sm" 
+                        variant={viewMode === 'my' ? 'default' : 'outline'} 
+                        onClick={() => setViewMode('my')}
+                        className="flex items-center gap-1"
+                      >
+                        <User className="h-4 w-4" />
+                        {!isMobile && <span>My Bookings</span>}
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant={viewMode === 'team' ? 'default' : 'outline'} 
+                        onClick={() => {
+                          setViewMode('team');
+                          if (availableTeams.length > 0 && !selectedTeam) {
+                            setSelectedTeam(availableTeams[0].id);
+                          }
+                        }}
+                        className="flex items-center gap-1"
+                      >
+                        <Users className="h-4 w-4" />
+                        {!isMobile && <span>Team</span>}
+                      </Button>
+                    </div>
+                  )}
                 </CardHeader>
+                
+                {viewMode === 'team' && availableTeams.length > 0 && (
+                  <div className="px-6 -mt-2 mb-4">
+                    <Select value={selectedTeam || ''} onValueChange={setSelectedTeam}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a team" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableTeams.map(team => (
+                          <SelectItem key={team.id} value={team.id}>
+                            {team.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                
                 <CardContent>
                   {filteredBookings.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-6 text-center">
@@ -116,27 +223,39 @@ export const BookingOverview: React.FC = () => {
                     <div className="space-y-3">
                       {filteredBookings.map(booking => {
                         const desk = getDeskById(booking.deskId);
+                        const user = getUserById(booking.userId);
+                        const team = user?.teamId ? teams.find(t => t.id === user.teamId) : null;
                         
                         return (
                           <div 
                             key={booking.id} 
-                            className="flex justify-between items-center p-3 bg-gray-50 rounded-md border-l-4 border-blue-500"
+                            className="flex justify-between items-center p-3 bg-gray-50 rounded-md border-l-4"
+                            style={{ borderLeftColor: team?.color || '#3B82F6' }}
                           >
                             <div>
-                              <p className="font-medium">{desk?.name || 'Unknown Desk'}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium">{desk?.name || 'Unknown Desk'}</p>
+                                {viewMode === 'team' && (
+                                  <span className="text-xs text-gray-500">
+                                    ({user?.name})
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-sm text-gray-500">
                                 {booking.isRecurring ? 'Recurring booking' : 'One-time booking'}
                               </p>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => handleCancelBooking(booking.id)}
-                            >
-                              <XCircle className="h-4 w-4 mr-1" />
-                              Cancel
-                            </Button>
+                            {(booking.userId === currentUser.id || currentUser.role === 'admin') && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => handleCancelBooking(booking.id)}
+                              >
+                                <XCircle className="h-4 w-4 mr-1" />
+                                <span className={isMobile ? 'sr-only' : ''}>Cancel</span>
+                              </Button>
+                            )}
                           </div>
                         );
                       })}
@@ -150,17 +269,69 @@ export const BookingOverview: React.FC = () => {
         
         <TabsContent value="list" className="animate-fadeIn">
           <Card>
-            <CardHeader>
-              <CardTitle>All Your Bookings</CardTitle>
-              <CardDescription>
-                Manage all your upcoming reservations
-              </CardDescription>
+            <CardHeader className="flex-row justify-between items-start space-y-0">
+              <div>
+                <CardTitle>All Bookings</CardTitle>
+                <CardDescription>
+                  Manage all your upcoming reservations
+                </CardDescription>
+              </div>
+              {(availableTeams.length > 0 || currentUser.role === 'admin') && (
+                <div className="flex items-center gap-2">
+                  <Button 
+                    size="sm" 
+                    variant={viewMode === 'my' ? 'default' : 'outline'} 
+                    onClick={() => setViewMode('my')}
+                    className="flex items-center gap-1"
+                  >
+                    <User className="h-4 w-4" />
+                    {!isMobile && <span>My Bookings</span>}
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant={viewMode === 'team' ? 'default' : 'outline'} 
+                    onClick={() => {
+                      setViewMode('team');
+                      if (availableTeams.length > 0 && !selectedTeam) {
+                        setSelectedTeam(availableTeams[0].id);
+                      }
+                    }}
+                    className="flex items-center gap-1"
+                  >
+                    <Users className="h-4 w-4" />
+                    {!isMobile && <span>Team</span>}
+                  </Button>
+                </div>
+              )}
             </CardHeader>
+            
+            {viewMode === 'team' && availableTeams.length > 0 && (
+              <div className="px-6 -mt-2 mb-4">
+                <Select value={selectedTeam || ''} onValueChange={setSelectedTeam}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a team" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableTeams.map(team => (
+                      <SelectItem key={team.id} value={team.id}>
+                        {team.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            
             <CardContent>
-              {bookings.filter(b => 
-                new Date(b.date) >= new Date() && 
-                (currentUser.role === 'admin' || b.userId === currentUser.id)
-              ).length === 0 ? (
+              {bookings.filter(b => {
+                const isUpcoming = new Date(b.date) >= new Date();
+                const isRelevant = viewMode === 'my'
+                  ? (currentUser.role === 'admin' || b.userId === currentUser.id)
+                  : selectedTeam 
+                    ? getUserById(b.userId)?.teamId === selectedTeam
+                    : false;
+                return isUpcoming && isRelevant;
+              }).length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-6 text-center">
                   <CalendarIcon className="h-12 w-12 text-gray-300 mb-2" />
                   <p className="text-gray-500">No upcoming bookings found</p>
@@ -168,21 +339,36 @@ export const BookingOverview: React.FC = () => {
               ) : (
                 <div className="space-y-3">
                   {bookings
-                    .filter(b => 
-                      new Date(b.date) >= new Date() && 
-                      (currentUser.role === 'admin' || b.userId === currentUser.id)
-                    )
+                    .filter(b => {
+                      const isUpcoming = new Date(b.date) >= new Date();
+                      const isRelevant = viewMode === 'my'
+                        ? (currentUser.role === 'admin' || b.userId === currentUser.id)
+                        : selectedTeam 
+                          ? getUserById(b.userId)?.teamId === selectedTeam
+                          : false;
+                      return isUpcoming && isRelevant;
+                    })
                     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
                     .map(booking => {
                       const desk = getDeskById(booking.deskId);
+                      const user = getUserById(booking.userId);
+                      const team = user?.teamId ? teams.find(t => t.id === user.teamId) : null;
                       
                       return (
                         <div 
                           key={booking.id} 
-                          className="flex justify-between items-center p-3 bg-gray-50 rounded-md border-l-4 border-blue-500"
+                          className="flex justify-between items-center p-3 bg-gray-50 rounded-md border-l-4"
+                          style={{ borderLeftColor: team?.color || '#3B82F6' }}
                         >
                           <div>
-                            <p className="font-medium">{desk?.name || 'Unknown Desk'}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">{desk?.name || 'Unknown Desk'}</p>
+                              {viewMode === 'team' && (
+                                <span className="text-xs text-gray-500">
+                                  ({user?.name})
+                                </span>
+                              )}
+                            </div>
                             <div className="flex items-center gap-2">
                               <p className="text-sm text-gray-500">
                                 {format(new Date(booking.date), 'PPP')}
@@ -194,15 +380,17 @@ export const BookingOverview: React.FC = () => {
                               )}
                             </div>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => handleCancelBooking(booking.id)}
-                          >
-                            <XCircle className="h-4 w-4 mr-1" />
-                            Cancel
-                          </Button>
+                          {(booking.userId === currentUser.id || currentUser.role === 'admin') && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => handleCancelBooking(booking.id)}
+                            >
+                              <XCircle className="h-4 w-4 mr-1" />
+                              <span className={isMobile ? 'sr-only' : ''}>Cancel</span>
+                            </Button>
+                          )}
                         </div>
                       );
                     })}

@@ -6,10 +6,12 @@ import { AppHeader } from '@/components/AppHeader';
 import { BookingOverview } from '@/components/BookingOverview';
 import { FloorMap } from '@/components/FloorMap';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const Dashboard = () => {
   const { currentUser, selectedMap, maps } = useBooking();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -24,13 +26,17 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gray-50">
       <AppHeader />
       
-      <main className="container mx-auto py-6">
+      <main className="container mx-auto px-4 py-6">
         <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
         
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="overview">Booking Overview</TabsTrigger>
-            <TabsTrigger value="map">Office Map</TabsTrigger>
+          <TabsList className="w-full flex max-w-md">
+            <TabsTrigger value="overview" className="flex-1">
+              {isMobile ? "Bookings" : "Booking Overview"}
+            </TabsTrigger>
+            <TabsTrigger value="map" className="flex-1">
+              {isMobile ? "Map" : "Office Map"}
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="overview" className="animate-slideIn">
@@ -38,7 +44,7 @@ const Dashboard = () => {
           </TabsContent>
           
           <TabsContent value="map" className="animate-slideIn">
-            <div className="p-6 space-y-6">
+            <div className="p-4 md:p-6 space-y-6">
               {selectedMap ? (
                 <div className="bg-white rounded-lg shadow-sm border p-4">
                   <h2 className="text-xl font-semibold mb-4">

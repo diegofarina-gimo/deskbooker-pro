@@ -21,6 +21,7 @@ export interface Team {
   name: string;
   description?: string;
   leaderId: string;
+  color?: string;
 }
 
 export interface Desk {
@@ -32,14 +33,6 @@ export interface Desk {
   height: number;
   status: DeskStatus;
   mapId: string;
-}
-
-export interface Map {
-  id: string;
-  name: string;
-  width: number;
-  height: number;
-  background?: string;
 }
 
 export interface Booking {
@@ -76,6 +69,7 @@ interface BookingContextType {
   updateTeam: (team: Team) => void;
   deleteTeam: (id: string) => void;
   getUsersByTeamId: (teamId: string) => User[];
+  getTeamBookings: (teamId: string, date: Date) => Booking[];
   
   bookings: Booking[];
   addBooking: (booking: Omit<Booking, 'id'>) => void;
@@ -91,6 +85,7 @@ interface BookingContextType {
   getDeskById: (id: string) => Desk | undefined;
   getUserById: (id: string) => User | undefined;
   getTeamById: (id: string) => Team | undefined;
+  getBookingByDeskAndDate: (deskId: string, date: Date) => Booking | undefined;
 }
 
 const sampleUsers: User[] = [
@@ -123,6 +118,21 @@ const sampleTeams: Team[] = [
     name: 'Engineering',
     description: 'Software development team',
     leaderId: '1',
+    color: '#4f46e5',
+  },
+  {
+    id: '2',
+    name: 'Design',
+    description: 'UX/UI Design team',
+    leaderId: '1',
+    color: '#ec4899',
+  },
+  {
+    id: '3',
+    name: 'Marketing',
+    description: 'Marketing and PR team',
+    leaderId: '1',
+    color: '#10b981',
   }
 ];
 
@@ -303,6 +313,16 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return teams.find(t => t.id === id);
   };
 
+  const getTeamBookings = (teamId: string, date: Date): Booking[] => {
+    const dateStr = formatDateString(date);
+    const teamUsers = getUsersByTeamId(teamId);
+    const teamUserIds = teamUsers.map(user => user.id);
+    
+    return bookings.filter(booking => 
+      teamUserIds.includes(booking.userId) && booking.date === dateStr
+    );
+  };
+
   const addBooking = (booking: Omit<Booking, 'id'>) => {
     const newBooking = { ...booking, id: crypto.randomUUID() };
     setBookings([...bookings, newBooking]);
@@ -338,6 +358,11 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return isDeskAvailable(deskId, date) ? 'available' : 'booked';
   };
 
+  const getBookingByDeskAndDate = (deskId: string, date: Date): Booking | undefined => {
+    const dateStr = formatDateString(date);
+    return bookings.find(b => b.deskId === deskId && b.date === dateStr);
+  };
+
   const getDeskById = (id: string): Desk | undefined => {
     return desks.find(d => d.id === id);
   };
@@ -369,6 +394,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         updateTeam,
         deleteTeam,
         getUsersByTeamId,
+        getTeamBookings,
         bookings,
         addBooking,
         cancelBooking,
@@ -380,7 +406,8 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         getDeskStatus,
         getDeskById,
         getUserById,
-        getTeamById
+        getTeamById,
+        getBookingByDeskAndDate
       }}
     >
       {children}

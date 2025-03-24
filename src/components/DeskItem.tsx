@@ -11,7 +11,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { BookingForm } from './BookingForm';
-import { Wrench, AlertTriangle } from 'lucide-react';
+import { Wrench, AlertTriangle, User } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface DeskItemProps {
   desk: Desk;
@@ -28,31 +29,44 @@ export const DeskItem: React.FC<DeskItemProps> = ({
   onEdit,
   onDelete
 }) => {
-  const { getDeskStatus, currentUser } = useBooking();
+  const { getDeskStatus, currentUser, getBookingByDeskAndDate, getUserById, getTeamById } = useBooking();
+  const isMobile = useIsMobile();
   
   const status = getDeskStatus(desk.id, date);
+  const booking = getBookingByDeskAndDate(desk.id, date);
+  const bookedUser = booking ? getUserById(booking.userId) : null;
+  const userTeam = bookedUser?.teamId ? getTeamById(bookedUser.teamId) : null;
 
-  // Define colors based on status
+  // Get dot color based on status and team
+  let dotColor = '#4CAF50'; // Green for available
+  let borderColor = 'border-green-400';
+  let textColor = 'text-green-800';
   let bgColor = 'bg-white';
-  let borderColor = 'border-gray-300';
-  let textColor = 'text-gray-900';
+  let statusText = 'Available';
   let icon = null;
 
   switch (status) {
     case 'available':
+      dotColor = '#4CAF50'; // Green
       bgColor = 'bg-green-50';
       borderColor = 'border-green-400';
       textColor = 'text-green-800';
+      statusText = 'Available';
       break;
     case 'booked':
+      dotColor = userTeam?.color || '#3B82F6'; // Team color or default blue
       bgColor = 'bg-blue-50';
       borderColor = 'border-blue-400';
       textColor = 'text-blue-800';
+      statusText = 'Booked';
+      icon = <User className="h-3 w-3" />;
       break;
     case 'maintenance':
+      dotColor = '#F59E0B'; // Amber/orange
       bgColor = 'bg-yellow-50';
       borderColor = 'border-yellow-400';
       textColor = 'text-yellow-800';
+      statusText = 'Maintenance';
       icon = <Wrench className="h-3 w-3" />;
       break;
   }
@@ -63,39 +77,50 @@ export const DeskItem: React.FC<DeskItemProps> = ({
     }
   };
 
+  const dotSize = isMobile ? 18 : 24;
+
   return (
     <div
-      className={`absolute desk ${isEditing ? 'cursor-move' : ''}`}
+      className={`absolute desk transition-all duration-200 ${isEditing ? 'cursor-move' : ''}`}
       style={{
         left: `${desk.x}px`,
         top: `${desk.y}px`,
-        width: `${desk.width}px`,
-        height: `${desk.height}px`,
+        width: `${dotSize}px`,
+        height: `${dotSize}px`,
+        zIndex: 10, // Ensure dots are above the map background
       }}
       draggable={isEditing}
       onDragStart={handleDragStart}
     >
       <Dialog>
         <DialogTrigger asChild>
-          <Card
-            className={`w-full h-full flex flex-col justify-center items-center shadow-md hover:shadow-lg 
-                      transition-all duration-200 p-2 ${bgColor} ${textColor} ${borderColor} border-2`}
+          <div 
+            className={`w-full h-full rounded-full shadow-md hover:shadow-lg
+                       transition-all duration-200 flex items-center justify-center
+                       border-2 ${borderColor}`}
+            style={{ 
+              backgroundColor: dotColor,
+              transform: `scale(${isEditing ? '1.2' : '1'})`,
+            }}
           >
-            <div className="text-xs font-semibold">{desk.name}</div>
-            <div className="text-[10px] capitalize flex items-center gap-1">
-              {icon}{status}
-            </div>
-          </Card>
+            {isEditing && (
+              <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold bg-white px-1 rounded shadow">
+                {desk.name}
+              </span>
+            )}
+          </div>
         </DialogTrigger>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Desk {desk.name}</DialogTitle>
+            <DialogTitle>{desk.name}</DialogTitle>
             <DialogDescription>
               {status === 'available' 
                 ? 'This desk is available for booking.' 
                 : status === 'maintenance'
                 ? 'This desk is currently under maintenance.'
-                : 'This desk is currently booked.'}
+                : bookedUser
+                  ? `This desk is booked by ${bookedUser.name}${userTeam ? ` (${userTeam.name})` : ''}.`
+                  : 'This desk is currently booked.'}
             </DialogDescription>
           </DialogHeader>
           
