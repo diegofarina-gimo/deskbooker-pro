@@ -30,6 +30,15 @@ const pool = mysql.createPool({
 // JWT secret
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', message: 'Server is up and running' });
+});
+
+app.head('/health', (req, res) => {
+  res.status(200).end();
+});
+
 // Authentication routes
 app.post('/auth/register', async (req, res) => {
   try {
